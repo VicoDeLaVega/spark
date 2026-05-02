@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — Data & GPU Pipeline</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #161b27;
+    --bg3: #1e2535;
+    --border: #2a3246;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --accent: #6366f1;
+    --accent-dim: rgba(99,102,241,.12);
+    --gpu: #10b981;
+    --gpu-dim: rgba(16,185,129,.1);
+    --warn: #f59e0b;
+    --warn-dim: rgba(245,158,11,.1);
+    --red: #f87171;
+    --code: #a78bfa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 40px 20px 80px;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* ── Header ── */
+  header { margin-bottom: 48px; }
+  header h1 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  header p { color: var(--muted); font-size: 15px; }
+  .tag {
+    display: inline-block;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    letter-spacing: .5px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag.gpu { background: var(--gpu-dim); color: var(--gpu); border-color: var(--gpu); }
+  .tag.warn { background: var(--warn-dim); color: var(--warn); border-color: var(--warn); }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 48px 0 16px;
+  }
+
+  /* ── Pipeline flow ── */
+  .pipeline { display: flex; flex-direction: column; gap: 0; }
+
+  .step {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 0 16px;
+    position: relative;
+  }
+
+  .step-num-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .step-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+    background: var(--bg3);
+    border: 2px solid var(--border);
+    color: var(--muted);
+    z-index: 1;
+  }
+  .step-num.cpu { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .step-num.gpu { border-color: var(--gpu); color: var(--gpu); background: var(--gpu-dim); }
+  .step-num.transfer { border-color: var(--warn); color: var(--warn); background: var(--warn-dim); }
+
+  .step-line {
+    width: 2px;
+    flex: 1;
+    min-height: 20px;
+    background: var(--border);
+    margin-top: 4px;
+  }
+  .step:last-child .step-line { display: none; }
+
+  .step-body {
+    padding-bottom: 28px;
+  }
+
+  .step-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 0;
+    position: relative;
+    top: -2px;
+  }
+  .step-card.gpu-card { border-color: var(--gpu); background: var(--gpu-dim); }
+  .step-card.transfer-card { border-color: var(--warn); background: var(--warn-dim); }
+
+  .step-card h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .step-card.gpu-card h3 { color: var(--gpu); }
+  .step-card.transfer-card h3 { color: var(--warn); }
+
+  .step-card p { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .step-card p:last-child { margin-bottom: 0; }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--code);
+    background: rgba(167,139,250,.08);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+
+  .refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .ref {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .ref span { color: var(--text); }
+
+  /* ── Key moment callout ── */
+  .callout {
+    background: var(--warn-dim);
+    border: 1px solid var(--warn);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+  .callout strong { color: var(--warn); }
+  .callout p { color: var(--muted); margin: 0; }
+
+  /* ── Texture table ── */
+  .tex-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 0;
+  }
+
+  .tex-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .tex-card h4 { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .tex-card .fmt { color: var(--gpu); font-family: monospace; font-size: 11px; }
+  .tex-card .size { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .tex-card .src { color: var(--muted); font-size: 11px; margin-top: 6px; border-top: 1px solid var(--border); padding-top: 6px; }
+
+  /* ── Sort loop section ── */
+  .sort-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .sort-step {
+    flex: 1;
+    padding: 16px 14px;
+    text-align: center;
+  }
+  .sort-step + .sort-step { border-left: 1px solid var(--border); }
+  .sort-step .icon { font-size: 20px; margin-bottom: 6px; }
+  .sort-step h4 { font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .sort-step p { font-size: 11px; color: var(--muted); }
+
+  .arrow-sep {
+    color: var(--muted);
+    font-size: 16px;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── Key insight boxes ── */
+  .insights { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 0; }
+  @media (max-width: 600px) { .insights { grid-template-columns: 1fr; } }
+
+  .insight {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .insight h4 { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  .insight p { font-size: 12px; color: var(--muted); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Spark — Data &amp; GPU Pipeline</h1>
+    <p>Comment les splats passent du disque aux shaders WebGL</p>
+  </header>
+
+  <!-- ════════════════════════════════════════
+       PIPELINE PRINCIPAL
+  ════════════════════════════════════════ -->
+  <div class="section-title">Pipeline principal</div>
+
+  <div class="pipeline">
+
+    <!-- STEP 1 -->
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-num">1</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-card">
+          <h3>URL / File bytes</h3>
+          <p>Point d'entrée. Les données arrivent soit via une URL HTTP, soit comme bytes bruts passés directement.</p>
+          <p>Pour les gros fichiers, des <strong>Range requests</strong> HTTP sont utilisées pour charger chunk par chunk (<code>SplatPager.ts:186</code>).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-num cpu">2</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-card">
+          <h3>SplatLoader — entry point</h3>
+          <p>
+            <code>loadInternal()</code> reçoit l'input (URL, bytes, ou stream) et délègue immédiatement
+            à un <strong>pool de workers</strong> via RPC pour ne pas bloquer le thread principal.
+          </p>
+          <div class="refs">
+            <div class="ref"><span>SplatLoader.ts</span>:60 — loadInternal()</div>
+            <div class="ref"><span>SplatLoader.ts</span>:198 — worker.call()</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-num cpu">3</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-card">
+          <h3>Worker Thread — WASM Decoder</h3>
+          <p>
+            Le worker streame le fichier par <strong>chunks de 1 MB</strong>, les pousse au décodeur WASM,
+            et récupère le résultat final.
+          </p>
+          <p>
+            Deux formats de sortie possibles :
+            <code>loadPackedSplats</code> (Uint32, 16 bytes/splat) ou
+            <code>loadExtSplats</code> (Float32, pour les coordonnées étendues).
+          </p>
+          <div class="refs">
+            <div class="ref"><span>worker.ts</span>:127 — decodeBytesUrl()</div>
+            <div class="ref"><span>worker.ts</span>:149 — decoder.push(chunk)</div>
+            <div class="ref"><span>worker.ts</span>:208 — decoder.finish()</div>
+            <div class="ref"><span>worker.ts</span>:242 — loadPackedSplats()</div>
+            <div class="ref"><span>worker.ts</span>:406 — loadExtSplats()</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-num cpu">4</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-card">
+          <h3>PackedSplats — stockage CPU</h3>
+          <p>
+            Le résultat décodé est stocké dans <code>this.packedArray: Uint32Array</code>.
+            C'est le buffer principal en RAM — un tableau plat de 16 bytes par splat.
+          </p>
+          <p>
+            Les coefficients de <strong>Spherical Harmonics</strong> (pour l'éclairage directionnel)
+            sont dans des tableaux Float32 séparés : <code>sh1</code>, <code>sh2</code>, <code>sh3</code>.
+          </p>
+          <div class="refs">
+            <div class="ref"><span>PackedSplats.ts</span>:110 — class PackedSplats</div>
+            <div class="ref"><span>PackedSplats.ts</span>:113 — packedArray: Uint32Array</div>
+            <div class="ref"><span>PackedSplats.ts</span>:206 — initialize()</div>
+            <div class="ref"><span>PackedSplats.ts</span>:353 — ensureShTextures()</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5 — TRANSFER -->
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-num transfer">5</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-card transfer-card">
+          <h3>⚡ Upload GPU — le moment clé</h3>
+          <p>
+            <code>maybeUpdateSource()</code> crée une <code>THREE.DataArrayTexture</code> avec les bytes du <code>packedArray</code>,
+            puis pose le flag magique :
+          </p>
+          <p style="font-family: monospace; font-size: 13px; color: var(--warn); padding: 8px 0;">
+            texture.needsUpdate = true
+          </p>
+          <p>
+            C'est THREE.js qui détecte ce flag au prochain frame et appelle l'API WebGL sous-jacente
+            (<code>texImage3D</code>) pour uploader les données en VRAM. Pas de <code>.to(device)</code>
+            comme en PyTorch — tout est implicite via ce flag.
+          </p>
+          <div class="refs">
+            <div class="ref"><span>PackedSplats.ts</span>:700 — maybeUpdateSource()</div>
+            <div class="ref"><span>PackedSplats.ts</span>:719 — new DataArrayTexture()</div>
+            <div class="ref"><span>PackedSplats.ts</span>:728 — needsUpdate = true</div>
+            <div class="ref"><span>PackedSplats.ts</span>:734 — needsUpdate = true (update)</div>
+            <div class="ref"><span>PackedSplats.ts</span>:382 — sh1 needsUpdate</div>
+            <div class="ref"><span>PackedSplats.ts</span>:414 — sh2 needsUpdate</div>
+            <div class="ref"><span>PackedSplats.ts</span>:446 — sh3 needsUpdate</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 6 -->
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-num gpu">6</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-card gpu-card">
+          <h3>GPU — DataArrayTexture RGBA32UI</h3>
+          <p>
+            Les splats sont maintenant en VRAM sous forme d'une <strong>texture 3D</strong> (Array Texture WebGL 2).
+            Format <code>RGBA32UI</code> : 4 entiers 32-bit par texel, soit 16 bytes — exactement la taille d'un splat packed.
+          </p>
+          <p>
+            Plusieurs <code>SplatMesh</code> peuvent coexister ; ils sont accumulés dans un
+            <code>WebGLArrayRenderTarget</code> partagé (<code>SplatAccumulator</code>) qui attribue
+            à chacun une plage de lignes dans la texture.
+          </p>
+          <div class="refs">
+            <div class="ref"><span>PackedSplats.ts</span>:126 — this.source (texture)</div>
+            <div class="ref"><span>SplatAccumulator.ts</span>:157 — WebGLArrayRenderTarget</div>
+            <div class="ref"><span>SplatAccumulator.ts</span>:129 — generateMapping()</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 7 -->
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-num gpu">7</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-card gpu-card">
+          <h3>Rendu — Shader sampling</h3>
+          <p>
+            À chaque frame, <code>onBeforeRender()</code> bind les textures GPU aux uniforms du shader.
+            Le shader GLSL lit ensuite les splats directement depuis la texture pour les rasteriser.
+          </p>
+          <div class="refs">
+            <div class="ref"><span>SparkRenderer.ts</span>:784 — uniforms.extSplats</div>
+            <div class="ref"><span>SparkRenderer.ts</span>:779 — uniforms.ordering</div>
+            <div class="ref"><span>SplatAccumulator.ts</span>:99 — getTextures()</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pipeline -->
+
+  <hr>
+
+  <!-- ════════════════════════════════════════
+       TEXTURES GPU
+  ════════════════════════════════════════ -->
+  <div class="section-title">Textures en VRAM</div>
+
+  <div class="tex-grid">
+    <div class="tex-card">
+      <h4>Packed Splats</h4>
+      <div class="fmt">RGBA32UI</div>
+      <div class="size">2048 × 2048 × depth</div>
+      <div class="src">PackedSplats.ts:719</div>
+    </div>
+    <div class="tex-card">
+      <h4>ExtSplats ext0</h4>
+      <div class="fmt">RGBA32UI</div>
+      <div class="size">Coordonnées étendues</div>
+      <div class="src">SplatAccumulator.ts:169</div>
+    </div>
+    <div class="tex-card">
+      <h4>ExtSplats ext1</h4>
+      <div class="fmt">RGBA32UI</div>
+      <div class="size">Rotations étendues</div>
+      <div class="src">SplatAccumulator.ts:170</div>
+    </div>
+    <div class="tex-card">
+      <h4>SH Band 1</h4>
+      <div class="fmt">RG32UI</div>
+      <div class="size">Harmoniques sphériques</div>
+      <div class="src">PackedSplats.ts:378</div>
+    </div>
+    <div class="tex-card">
+      <h4>SH Band 2</h4>
+      <div class="fmt">RGBA32UI</div>
+      <div class="size">Harmoniques sphériques</div>
+      <div class="src">PackedSplats.ts:410</div>
+    </div>
+    <div class="tex-card">
+      <h4>SH Band 3</h4>
+      <div class="fmt">RGBA32UI</div>
+      <div class="size">Harmoniques sphériques</div>
+      <div class="src">PackedSplats.ts:442</div>
+    </div>
+    <div class="tex-card">
+      <h4>Ordering</h4>
+      <div class="fmt">RGBA32UI</div>
+      <div class="size">4096 × rows — ordre de tri</div>
+      <div class="src">SparkRenderer.ts:1043</div>
+    </div>
+    <div class="tex-card">
+      <h4>Depth (temp)</h4>
+      <div class="fmt">RGBA8</div>
+      <div class="size">Readback GPU → CPU</div>
+      <div class="src">SplatAccumulator.ts:173</div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ════════════════════════════════════════
+       BOUCLE DE TRI
+  ════════════════════════════════════════ -->
+  <div class="section-title">Boucle de tri (chaque frame)</div>
+
+  <div class="sort-flow">
+    <div class="sort-step">
+      <div class="icon">🎮</div>
+      <h4>GPU render</h4>
+      <p>Rasterise les splats dans le depth buffer</p>
+    </div>
+    <div class="arrow-sep">→</div>
+    <div class="sort-step">
+      <div class="icon">📥</div>
+      <h4>readbackDepth()</h4>
+      <p>Lit le depth buffer GPU → RAM<br><code style="font-size:10px">ts:1641</code></p>
+    </div>
+    <div class="arrow-sep">→</div>
+    <div class="sort-step">
+      <div class="icon">⚙️</div>
+      <h4>sortSplats32</h4>
+      <p>Tri en worker thread<br><code style="font-size:10px">ts:1016</code></p>
+    </div>
+    <div class="arrow-sep">→</div>
+    <div class="sort-step">
+      <div class="icon">📤</div>
+      <h4>orderingTexture</h4>
+      <p>Upload les indices triés → GPU<br><code style="font-size:10px">ts:1051</code></p>
+    </div>
+    <div class="arrow-sep">→</div>
+    <div class="sort-step">
+      <div class="icon">🔁</div>
+      <h4>Next frame</h4>
+      <p>Le shader lit l'ordering pour trier l'affichage</p>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ════════════════════════════════════════
+       POINTS CLÉS
+  ════════════════════════════════════════ -->
+  <div class="section-title">Points clés à retenir</div>
+
+  <div class="insights">
+    <div class="insight">
+      <h4>Pas de <code>.to(device)</code></h4>
+      <p>
+        Contrairement à PyTorch, il n'y a pas d'appel explicite pour envoyer les données au GPU.
+        Tout passe par le flag <code>needsUpdate = true</code> que THREE.js surveille
+        et qui déclenche l'upload WebGL au prochain frame.
+      </p>
+    </div>
+    <div class="insight">
+      <h4>Format RGBA32UI</h4>
+      <p>
+        Toutes les textures principales sont en <code>RGBA32UI</code> : 4 entiers 32-bit non signés
+        par texel. C'est idéal pour stocker des splats packés (16 bytes = exactement 1 texel).
+      </p>
+    </div>
+    <div class="insight">
+      <h4>Workers pour ne pas bloquer</h4>
+      <p>
+        Le décodage WASM et le tri se font dans des Web Workers séparés.
+        Le thread principal ne fait que gérer le rendu et la logique Three.js.
+      </p>
+    </div>
+    <div class="insight">
+      <h4>LoD par Range requests</h4>
+      <p>
+        <code>SplatPager</code> charge les chunks à la demande via des requêtes HTTP Range,
+        permettant un chargement progressif sans avoir à télécharger tout le fichier d'un coup.
+      </p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
