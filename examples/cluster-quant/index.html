@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cluster Quant — A/B Comparison</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0a0e1a;
+      --bg2:     #111827;
+      --bg3:     #1e2535;
+      --border:  #2a3246;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --accent:  #6366f1;
+      --green:   #10b981;
+      --warn:    #f59e0b;
+      --red:     #f87171;
+      --cyan:    #22d3ee;
+      --panel-w: 310px;
+    }
+
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
+
+    /* ── Viewport ── */
+    #viewport {
+      position: fixed;
+      top: 0; left: 0;
+      width: calc(100% - var(--panel-w));
+      height: 100%;
+      background: #000;
+    }
+
+    #canvasA, #canvasB {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: block;
+    }
+    #canvasA { z-index: 1; }
+    #canvasB { z-index: 2; }
+
+    /* Controls overlay — captures mouse/keyboard for SparkControls */
+    #ctrl-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      cursor: grab;
+    }
+    #ctrl-overlay:active { cursor: grabbing; }
+
+    /* A/B divider */
+    #divider {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: rgba(255,255,255,.4);
+      z-index: 8;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      pointer-events: none;
+    }
+    #divider.visible { display: block; }
+    #divider-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.9);
+      border: 2px solid #fff;
+      cursor: ew-resize;
+      pointer-events: all;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    #divider-handle::before {
+      content: "⇔";
+      font-size: 14px;
+      color: #000;
+      line-height: 1;
+    }
+
+    /* Viewport labels */
+    .vp-label {
+      position: absolute;
+      bottom: 20px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 4px;
+      z-index: 7;
+      pointer-events: none;
+      display: none;
+    }
+    .vp-label.visible { display: block; }
+    #label-original {
+      left: 16px;
+      background: rgba(0,0,0,.6);
+      color: rgba(255,255,255,.7);
+      border: 1px solid rgba(255,255,255,.2);
+    }
+    #label-reconstructed {
+      background: rgba(16,185,129,.15);
+      color: var(--green);
+      border: 1px solid var(--green);
+    }
+
+    /* ── Panel ── */
+    #panel {
+      position: fixed;
+      right: 0; top: 0; bottom: 0;
+      width: var(--panel-w);
+      background: rgba(10,14,26,.97);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      z-index: 20;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+    }
+    #panel::-webkit-scrollbar { width: 4px; }
+    #panel::-webkit-scrollbar-track { background: transparent; }
+    #panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .panel-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-header h1 { font-size: 14px; font-weight: 700; color: #fff; }
+    .panel-header p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .panel-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    /* World selector */
+    select {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      user-select: none;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--text); }
+    .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary {
+      width: 100%;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      padding: 8px;
+    }
+    .btn.primary:hover { opacity: .85; }
+    .btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+
+    .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-group .btn { flex: 1; }
+
+    /* Status bar */
+    #status-bar {
+      padding: 10px 16px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--muted);
+    }
+    #status-dot.loading { background: var(--warn); animation: pulse 1s infinite; }
+    #status-dot.ready { background: var(--green); }
+    #status-dot.error { background: var(--red); }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    #status-text { color: var(--muted); }
+
+    /* Progress */
+    #progress-wrap { padding: 0 16px 10px; display: none; }
+    #progress-wrap.visible { display: block; }
+    #progress-bar-track {
+      height: 3px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    #progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      width: 0%;
+      transition: width .1s;
+    }
+
+    /* Metrics rows */
+    .m-table { display: flex; flex-direction: column; gap: 4px; }
+    .m-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .m-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .m-val {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: var(--text);
+      text-align: right;
+    }
+    .m-val.cyan { color: var(--cyan); }
+    .m-val.green { color: var(--green); }
+    .m-val.warn { color: var(--warn); font-weight: 700; }
+    .m-val.red { color: var(--red); }
+
+    /* Quality gates */
+    .gate {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 12px;
+    }
+    .gate-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--muted);
+    }
+    .gate-dot.pass { background: var(--green); }
+    .gate-dot.fail { background: var(--red); }
+    .gate-label { color: var(--muted); flex: 1; }
+    .gate-val { font-family: monospace; font-size: 11px; color: var(--text); }
+
+    /* Separator */
+    .sep { height: 1px; background: var(--border); margin: 8px 0; }
+
+    /* Keyboard hint */
+    #hint {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      font-family: 'SF Mono', monospace;
+      font-size: 10px;
+      color: rgba(255,255,255,.35);
+      pointer-events: none;
+      z-index: 6;
+      line-height: 1.8;
+    }
+    kbd {
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 3px;
+      padding: 0px 4px;
+      font-family: monospace;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ VIEWPORT ═══ -->
+  <div id="viewport">
+    <canvas id="canvasA"></canvas>
+    <canvas id="canvasB"></canvas>
+    <div id="ctrl-overlay"></div>
+    <div id="divider"><div id="divider-handle"></div></div>
+    <span class="vp-label" id="label-original">Original</span>
+    <span class="vp-label" id="label-reconstructed">Quantized pos8</span>
+  </div>
+
+  <div id="hint">
+    <kbd>Tab</kbd> toggle view &nbsp;|&nbsp; <kbd>WASD</kbd> move &nbsp;|&nbsp;
+    <kbd>RF</kbd> up/down &nbsp;|&nbsp; click+drag to look
+  </div>
+
+  <!-- ═══ PANEL ═══ -->
+  <div id="panel">
+
+    <div class="panel-header">
+      <h1>Cluster Position Quantization</h1>
+      <p>float16 xyz → uint8 local coords</p>
+    </div>
+
+    <!-- World select -->
+    <div class="panel-section">
+      <div class="section-label">Scene</div>
+      <select id="world-select"></select>
+      <button class="btn primary" id="load-btn">Load &amp; Quantize</button>
+    </div>
+
+    <!-- Cluster size -->
+    <div class="panel-section">
+      <div class="section-label">Cluster size</div>
+      <div class="btn-group" id="cluster-btns">
+        <button class="btn" data-size="32">32</button>
+        <button class="btn" data-size="64">64</button>
+        <button class="btn active" data-size="128">128</button>
+        <button class="btn" data-size="256">256</button>
+      </div>
+    </div>
+
+    <!-- View mode -->
+    <div class="panel-section">
+      <div class="section-label">View</div>
+      <div class="btn-group" id="view-btns">
+        <button class="btn" data-mode="original">Original</button>
+        <button class="btn" data-mode="reconstructed">Quantized</button>
+        <button class="btn active" data-mode="ab">A/B Split</button>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div id="status-bar">
+      <div id="status-dot"></div>
+      <span id="status-text">Pick a scene and load</span>
+    </div>
+    <div id="progress-wrap">
+      <div id="progress-bar-track"><div id="progress-bar-fill"></div></div>
+    </div>
+
+    <!-- Memory -->
+    <div class="panel-section">
+      <div class="section-label">Memory (theoretical)</div>
+      <div class="m-table">
+        <div class="m-row">
+          <span class="m-label">Splats</span>
+          <span class="m-val" id="m-splats">—</span>
+        </div>
+        <div class="m-row">
+          <span class="m-label">Clusters (c=<span id="m-csize">128</span>)</span>
+          <span class="m-val" id="m-clusters">—</span>
+        </div>
+        <div class="sep"></div>
+        <div class="m-row">
+          <span class="m-label">Current  (16 B/splat)</span>
+          <span class="m-val cyan" id="m-cur">—</span>
+        </div>
+        <div class="m-row">
+          <span class="m-label">Pos8 théo. (13.19 B)</span>
+          <span class="m-val cyan" id="m-pos8">—</span>
+        </div>
+        <div class="m-row">
+          <span class="m-label">Gain théorique</span>
+          <span class="m-val green" id="m-gain">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Position error -->
+    <div class="panel-section">
+      <div class="section-label">Position error (absolute)</div>
+      <div class="m-table">
+        <div class="m-row"><span class="m-label">mean</span><span class="m-val" id="pe-mean">—</span></div>
+        <div class="m-row"><span class="m-label">p50</span><span class="m-val" id="pe-p50">—</span></div>
+        <div class="m-row"><span class="m-label">p90</span><span class="m-val" id="pe-p90">—</span></div>
+        <div class="m-row"><span class="m-label">p99</span><span class="m-val" id="pe-p99">—</span></div>
+        <div class="m-row"><span class="m-label">max</span><span class="m-val" id="pe-max">—</span></div>
+      </div>
+    </div>
+
+    <!-- Relative error -->
+    <div class="panel-section">
+      <div class="section-label">Relative error  (pos_err / max_scale)</div>
+      <div class="m-table">
+        <div class="m-row"><span class="m-label">mean</span><span class="m-val" id="re-mean">—</span></div>
+        <div class="m-row"><span class="m-label">p50</span><span class="m-val" id="re-p50">—</span></div>
+        <div class="m-row"><span class="m-label">p90</span><span class="m-val" id="re-p90">—</span></div>
+        <div class="m-row"><span class="m-label">p99</span><span class="m-val" id="re-p99">—</span></div>
+        <div class="m-row"><span class="m-label">max</span><span class="m-val" id="re-max">—</span></div>
+      </div>
+    </div>
+
+    <!-- Quality gates -->
+    <div class="panel-section">
+      <div class="section-label">Quality gates</div>
+      <div class="gate" id="gate-p90">
+        <div class="gate-dot" id="g0-dot"></div>
+        <span class="gate-label">p90 rel &lt; 0.25</span>
+        <span class="gate-val" id="g0-val">—</span>
+      </div>
+      <div class="gate" id="gate-p99">
+        <div class="gate-dot" id="g1-dot"></div>
+        <span class="gate-label">p99 rel &lt; 0.50</span>
+        <span class="gate-val" id="g1-val">—</span>
+      </div>
+      <div class="gate" id="gate-above1">
+        <div class="gate-dot" id="g2-dot"></div>
+        <span class="gate-label">rel &gt; 1.0 &lt; 0.1%</span>
+        <span class="gate-val" id="g2-val">—</span>
+      </div>
+      <div class="sep"></div>
+      <div class="m-table" style="margin-top:4px">
+        <div class="m-row"><span class="m-label">rel &gt; 0.25</span><span class="m-val" id="qg-025">—</span></div>
+        <div class="m-row"><span class="m-label">rel &gt; 0.50</span><span class="m-val" id="qg-050">—</span></div>
+        <div class="m-row"><span class="m-label">rel &gt; 1.00</span><span class="m-val" id="qg-100">—</span></div>
+      </div>
+    </div>
+
+    <!-- Cluster / bbox stats -->
+    <div class="panel-section">
+      <div class="section-label">Cluster bbox diagonal</div>
+      <div class="m-table">
+        <div class="m-row"><span class="m-label">avg</span><span class="m-val" id="bb-avg">—</span></div>
+        <div class="m-row"><span class="m-label">p90</span><span class="m-val" id="bb-p90">—</span></div>
+        <div class="m-row"><span class="m-label">p99</span><span class="m-val" id="bb-p99">—</span></div>
+        <div class="m-row"><span class="m-label">max</span><span class="m-val" id="bb-max">—</span></div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.180.0/three.module.js",
+      "@sparkjsdev/spark": "../../dist/spark.module.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+  import * as THREE from "three";
+  import {
+    SparkRenderer, PackedSplats, SplatMesh, SparkControls, utils
+  } from "@sparkjsdev/spark";
+
+  // ─────────────────────────────────────────────
+  // Constants
+  // ─────────────────────────────────────────────
+  const CDN = "https://wlt-ai-cdn.art/tastier_spz_500/";
+  const WORLDS = [
+    { label: "Scene A",  file: "03facf44-511b-42d0-9ddb-9e2a0227e50e_500k.spz" },
+    { label: "Scene B",  file: "1064da41-40b6-47d5-b143-a1cad98605ec_500k.spz" },
+    { label: "Scene C",  file: "320ff674-5ec2-4a51-b294-002102c6dca2_500k.spz" },
+    { label: "Scene D",  file: "54fad6e4-9c9b-43ba-be6d-f1e31cbe7a95_500k.spz" },
+    { label: "Scene E",  file: "78955a27-26e6-43ab-92d1-f22271f32d40_500k.spz" },
+    { label: "Scene F",  file: "9d68d5d7-9c49-4fdd-99ed-c101fcbed066_500k.spz" },
+    { label: "Scene G",  file: "d295b4a0-b801-4e28-871d-a2477de09862_500k.spz" },
+    { label: "Scene H",  file: "fbc2ba1e-bcab-40c0-97c8-26a420f1af2c_500k.spz" },
+  ];
+
+  const PACKED_BYTES   = 16;
+  const META_BYTES     = 24;   // 6 × float32 per cluster
+  const POS_BYTES_OLD  = 6;    // 3 × float16
+  const POS_BYTES_NEW  = 3;    // 3 × uint8
+
+  // ─────────────────────────────────────────────
+  // DOM refs
+  // ─────────────────────────────────────────────
+  const viewport    = document.getElementById("viewport");
+  const canvasA     = document.getElementById("canvasA");
+  const canvasB     = document.getElementById("canvasB");
+  const ctrlOverlay = document.getElementById("ctrl-overlay");
+  const divider     = document.getElementById("divider");
+  const divHandle   = document.getElementById("divider-handle");
+  const lblOriginal = document.getElementById("label-original");
+  const lblRecon    = document.getElementById("label-reconstructed");
+
+  const worldSelect  = document.getElementById("world-select");
+  const loadBtn      = document.getElementById("load-btn");
+  const clusterBtns  = document.querySelectorAll("#cluster-btns .btn");
+  const viewBtns     = document.querySelectorAll("#view-btns .btn");
+
+  const statusDot    = document.getElementById("status-dot");
+  const statusText   = document.getElementById("status-text");
+  const progressWrap = document.getElementById("progress-wrap");
+  const progressFill = document.getElementById("progress-bar-fill");
+
+  // ─────────────────────────────────────────────
+  // State
+  // ─────────────────────────────────────────────
+  let viewMode    = "ab";      // "original" | "reconstructed" | "ab"
+  let clusterSize = 128;
+  let splitX      = 0.5;       // 0..1 fraction of viewport width for divider
+  let isDragging  = false;
+
+  let originalPacked  = null;
+  let reconPacked     = null;
+  let isLoading       = false;
+
+  // ─────────────────────────────────────────────
+  // Populate world selector
+  // ─────────────────────────────────────────────
+  WORLDS.forEach(({ label, file }, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = label;
+    worldSelect.appendChild(opt);
+  });
+
+  // ─────────────────────────────────────────────
+  // THREE.js — two renderers, one camera
+  // ─────────────────────────────────────────────
+  const vpW = () => viewport.clientWidth;
+  const vpH = () => viewport.clientHeight;
+
+  const rendererA = new THREE.WebGLRenderer({ canvas: canvasA, antialias: false });
+  const rendererB = new THREE.WebGLRenderer({ canvas: canvasB, antialias: false });
+  rendererA.setPixelRatio(Math.min(devicePixelRatio, 2));
+  rendererB.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+  const sceneA = new THREE.Scene();
+  const sceneB = new THREE.Scene();
+  sceneA.background = new THREE.Color(0x000000);
+  sceneB.background = new THREE.Color(0x000000);
+
+  const camera = new THREE.PerspectiveCamera(65, vpW() / vpH(), 0.01, 1000);
+  const localFrame = new THREE.Group();
+  sceneA.add(localFrame);
+  localFrame.add(camera);
+
+  const sparkA = new SparkRenderer({ renderer: rendererA });
+  const sparkB = new SparkRenderer({ renderer: rendererB });
+  sceneA.add(sparkA);
+  sceneB.add(sparkB);
+
+  const meshA = new SplatMesh();
+  const meshB = new SplatMesh();
+  sparkA.add(meshA);
+  sparkB.add(meshB);
+
+  // Lofi scenes are captured in Y-down (OpenCV) convention.
+  // Without SparkXr's "local-floor" reference space, we need to flip
+  // the world 180° around X so Y-up is correct in THREE.js/WebGL.
+  meshA.rotation.x = Math.PI;
+  meshB.rotation.x = Math.PI;
+
+  // SparkControls — attach to canvasA (bottom canvas, always present).
+  // canvasB sits on top in A/B mode but ctrlOverlay is above everything
+  // to capture events; SparkControls just needs any HTMLElement.
+  const controls = new SparkControls({ canvas: ctrlOverlay });
+  controls.pointerControls.rotateSpeed *= 2.0;
+
+  // ─────────────────────────────────────────────
+  // Resize
+  // ─────────────────────────────────────────────
+  function onResize() {
+    const w = vpW(), h = vpH();
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    rendererA.setSize(w, h);
+    rendererB.setSize(w, h);
+    updateSplit();
+  }
+  window.addEventListener("resize", onResize);
+  onResize();
+
+  // ─────────────────────────────────────────────
+  // View mode
+  // ─────────────────────────────────────────────
+  function applyViewMode(mode) {
+    viewMode = mode;
+    // Update active button
+    viewBtns.forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+
+    const w = vpW();
+    if (mode === "original") {
+      canvasA.style.display  = "block";
+      canvasB.style.display  = "none";
+      divider.classList.remove("visible");
+      lblOriginal.classList.remove("visible");
+      lblRecon.classList.remove("visible");
+    } else if (mode === "reconstructed") {
+      canvasA.style.display  = "none";
+      canvasB.style.display  = "block";
+      canvasB.style.clipPath = "none";
+      divider.classList.remove("visible");
+      lblOriginal.classList.remove("visible");
+      lblRecon.classList.remove("visible");
+    } else {
+      canvasA.style.display  = "block";
+      canvasB.style.display  = "block";
+      divider.classList.add("visible");
+      lblOriginal.classList.add("visible");
+      lblRecon.classList.add("visible");
+      updateSplit();
+    }
+  }
+
+  function updateSplit() {
+    if (viewMode !== "ab") return;
+    const px = Math.round(splitX * vpW());
+    divider.style.left = px + "px";
+    canvasB.style.clipPath = `inset(0 0 0 ${px}px)`;
+    lblRecon.style.left = (px + 16) + "px";
+  }
+
+  // ─────────────────────────────────────────────
+  // Divider drag
+  // ─────────────────────────────────────────────
+  divHandle.addEventListener("mousedown", e => {
+    isDragging = true;
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  divHandle.addEventListener("touchstart", e => {
+    isDragging = true;
+    e.stopPropagation();
+    e.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    const rect = viewport.getBoundingClientRect();
+    splitX = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
+    updateSplit();
+  });
+  window.addEventListener("touchmove", e => {
+    if (!isDragging) return;
+    const rect = viewport.getBoundingClientRect();
+    splitX = Math.max(0.05, Math.min(0.95, (e.touches[0].clientX - rect.left) / rect.width));
+    updateSplit();
+  }, { passive: true });
+  window.addEventListener("mouseup",  () => { isDragging = false; });
+  window.addEventListener("touchend", () => { isDragging = false; });
+
+  // ─────────────────────────────────────────────
+  // Status helpers
+  // ─────────────────────────────────────────────
+  function setStatus(state, msg) {
+    statusDot.className = state;
+    statusText.textContent = msg;
+  }
+  function setProgress(frac) {
+    const pct = Math.round(frac * 100);
+    progressFill.style.width = pct + "%";
+    progressWrap.classList.toggle("visible", frac > 0 && frac < 1);
+  }
+
+  // ─────────────────────────────────────────────
+  // Morton sort
+  // ─────────────────────────────────────────────
+  function expandBits(v) {
+    v = v & 0x3ff;
+    v = (v | (v << 16)) & 0x030000ff;
+    v = (v | (v <<  8)) & 0x0300f00f;
+    v = (v | (v <<  4)) & 0x030c30c3;
+    v = (v | (v <<  2)) & 0x09249249;
+    return v >>> 0;
+  }
+  function morton3D(x, y, z) {
+    return (expandBits(x) | (expandBits(y) << 1) | (expandBits(z) << 2)) >>> 0;
+  }
+
+  // ─────────────────────────────────────────────
+  // Percentile helper
+  // ─────────────────────────────────────────────
+  function percentiles(arr) {
+    // arr is a Float32Array — sort numerically
+    const s = arr.slice().sort();
+    const n = s.length;
+    const mean = s.reduce((a, v) => a + v, 0) / n;
+    return {
+      mean,
+      p50: s[Math.floor(0.50 * n)],
+      p90: s[Math.floor(0.90 * n)],
+      p99: s[Math.floor(0.99 * n)],
+      max: s[n - 1],
+    };
+  }
+
+  // ─────────────────────────────────────────────
+  // Main quantization pipeline
+  // ─────────────────────────────────────────────
+  async function runQuantization(packed, cSize) {
+    const n   = packed.numSplats;
+    const src = packed.packedArray;
+    const enc = packed.splatEncoding;
+
+    setStatus("loading", `Unpacking ${n.toLocaleString()} splats…`);
+    setProgress(0.0);
+    await tick();
+
+    // ── 1. Unpack all centers + scale refs ──
+    const cx  = new Float32Array(n);
+    const cy  = new Float32Array(n);
+    const cz  = new Float32Array(n);
+    const scaleRef = new Float32Array(n);
+
+    for (let i = 0; i < n; i++) {
+      const { center, scales } = utils.unpackSplat(src, i, enc);
+      cx[i] = center.x;
+      cy[i] = center.y;
+      cz[i] = center.z;
+      scaleRef[i] = Math.max(scales.x, scales.y, scales.z);
+      if (i % 100000 === 0) { setProgress(i / n * 0.2); await tick(); }
+    }
+
+    // ── 2. Global bounds ──
+    let gMinX = Infinity, gMinY = Infinity, gMinZ = Infinity;
+    let gMaxX = -Infinity, gMaxY = -Infinity, gMaxZ = -Infinity;
+    for (let i = 0; i < n; i++) {
+      if (cx[i] < gMinX) gMinX = cx[i];
+      if (cy[i] < gMinY) gMinY = cy[i];
+      if (cz[i] < gMinZ) gMinZ = cz[i];
+      if (cx[i] > gMaxX) gMaxX = cx[i];
+      if (cy[i] > gMaxY) gMaxY = cy[i];
+      if (cz[i] > gMaxZ) gMaxZ = cz[i];
+    }
+    const gRX = gMaxX - gMinX || 1;
+    const gRY = gMaxY - gMinY || 1;
+    const gRZ = gMaxZ - gMinZ || 1;
+    const MAX_I = 1023; // 10-bit
+
+    setStatus("loading", "Computing Morton codes…");
+    setProgress(0.2);
+    await tick();
+
+    // ── 3. Morton codes (10 bits per axis) ──
+    const mortonCodes = new Uint32Array(n);
+    for (let i = 0; i < n; i++) {
+      const ix = Math.min(MAX_I, Math.floor((cx[i] - gMinX) / gRX * MAX_I));
+      const iy = Math.min(MAX_I, Math.floor((cy[i] - gMinY) / gRY * MAX_I));
+      const iz = Math.min(MAX_I, Math.floor((cz[i] - gMinZ) / gRZ * MAX_I));
+      mortonCodes[i] = morton3D(ix, iy, iz);
+    }
+
+    setStatus("loading", "Sorting by Morton code…");
+    setProgress(0.35);
+    await tick();
+
+    // ── 4. Sort by Morton code ──
+    const indices = Array.from({ length: n }, (_, i) => i);
+    indices.sort((a, b) => mortonCodes[a] - mortonCodes[b]);
+
+    setStatus("loading", `Building ${Math.ceil(n / cSize)} clusters…`);
+    setProgress(0.5);
+    await tick();
+
+    // ── 5. Quantize / dequantize / measure error ──
+    const reconArray = new Uint32Array(src);  // full copy, update centers in-place
+    const posErrors  = new Float32Array(n);
+    const relErrors  = new Float32Array(n);
+    const bboxDiags  = [];
+
+    const numClusters = Math.ceil(n / cSize);
+
+    for (let ci = 0; ci < numClusters; ci++) {
+      const start = ci * cSize;
+      const end   = Math.min(start + cSize, n);
+
+      // Cluster bounds
+      let cMinX = Infinity, cMinY = Infinity, cMinZ = Infinity;
+      let cMaxX = -Infinity, cMaxY = -Infinity, cMaxZ = -Infinity;
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        if (cx[oi] < cMinX) cMinX = cx[oi];
+        if (cy[oi] < cMinY) cMinY = cy[oi];
+        if (cz[oi] < cMinZ) cMinZ = cz[oi];
+        if (cx[oi] > cMaxX) cMaxX = cx[oi];
+        if (cy[oi] > cMaxY) cMaxY = cy[oi];
+        if (cz[oi] > cMaxZ) cMaxZ = cz[oi];
+      }
+
+      const rX = cMaxX - cMinX || 1e-9;
+      const rY = cMaxY - cMinY || 1e-9;
+      const rZ = cMaxZ - cMinZ || 1e-9;
+
+      bboxDiags.push(Math.sqrt(rX * rX + rY * rY + rZ * rZ));
+
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        const ox = cx[oi], oy = cy[oi], oz = cz[oi];
+
+        // Quantize to uint8
+        const qx = Math.min(255, Math.max(0, Math.round(255 * (ox - cMinX) / rX)));
+        const qy = Math.min(255, Math.max(0, Math.round(255 * (oy - cMinY) / rY)));
+        const qz = Math.min(255, Math.max(0, Math.round(255 * (oz - cMinZ) / rZ)));
+
+        // Dequantize
+        const rx = cMinX + (qx / 255) * rX;
+        const ry = cMinY + (qy / 255) * rY;
+        const rz = cMinZ + (qz / 255) * rZ;
+
+        // Errors
+        const posErr = Math.sqrt((rx - ox) ** 2 + (ry - oy) ** 2 + (rz - oz) ** 2);
+        const sRef   = Math.max(scaleRef[oi], 1e-6);
+        posErrors[oi] = posErr;
+        relErrors[oi] = posErr / sRef;
+
+        // Update center in reconstructed array (only words 1 & 2)
+        utils.setPackedSplatCenter(reconArray, oi, rx, ry, rz);
+      }
+
+      if (ci % 200 === 0) {
+        setProgress(0.5 + (ci / numClusters) * 0.4);
+        await tick();
+      }
+    }
+
+    setStatus("loading", "Computing statistics…");
+    setProgress(0.9);
+    await tick();
+
+    // ── 6. Stats ──
+    const posStats = percentiles(posErrors);
+    const relStats = percentiles(relErrors);
+
+    // Threshold counts
+    let above025 = 0, above050 = 0, above100 = 0;
+    for (let i = 0; i < n; i++) {
+      if (relErrors[i] > 1.00) above100++;
+      if (relErrors[i] > 0.50) above050++;
+      if (relErrors[i] > 0.25) above025++;
+    }
+
+    bboxDiags.sort((a, b) => a - b);
+    const bDiagAvg = bboxDiags.reduce((s, v) => s + v, 0) / bboxDiags.length;
+    const bDiagP90 = bboxDiags[Math.floor(0.90 * bboxDiags.length)];
+    const bDiagP99 = bboxDiags[Math.floor(0.99 * bboxDiags.length)];
+    const bDiagMax = bboxDiags[bboxDiags.length - 1];
+
+    setProgress(1.0);
+
+    return {
+      reconArray,
+      n,
+      numClusters,
+      posStats,
+      relStats,
+      above025, above050, above100,
+      bboxStats: { avg: bDiagAvg, p90: bDiagP90, p99: bDiagP99, max: bDiagMax },
+    };
+  }
+
+  function tick() { return new Promise(r => setTimeout(r, 0)); }
+
+  // ─────────────────────────────────────────────
+  // Format helpers
+  // ─────────────────────────────────────────────
+  function fmtBytes(b) {
+    if (!Number.isFinite(b)) return "—";
+    if (b >= 1024 * 1024) return (b / (1024 * 1024)).toFixed(2) + " MiB";
+    if (b >= 1024) return (b / 1024).toFixed(1) + " KiB";
+    return b + " B";
+  }
+  function fmtNum(v, digits = 4) {
+    if (!Number.isFinite(v)) return "—";
+    return v.toFixed(digits);
+  }
+  function fmtPct(v) { return (v * 100).toFixed(2) + " %"; }
+
+  // ─────────────────────────────────────────────
+  // Update panel metrics
+  // ─────────────────────────────────────────────
+  function updateMemoryMetrics(n, cSize, results) {
+    const curBytes  = n * PACKED_BYTES;
+    const pos8bytes = n * (PACKED_BYTES - POS_BYTES_OLD + POS_BYTES_NEW + META_BYTES / cSize);
+    const gainBytes = curBytes - pos8bytes;
+    const gainPct   = gainBytes / curBytes;
+
+    document.getElementById("m-splats").textContent   = n.toLocaleString();
+    document.getElementById("m-csize").textContent    = cSize;
+    document.getElementById("m-clusters").textContent = (results?.numClusters ?? "—").toLocaleString();
+    document.getElementById("m-cur").textContent      = fmtBytes(curBytes);
+    document.getElementById("m-pos8").textContent     = fmtBytes(pos8bytes);
+    document.getElementById("m-gain").textContent     = `−${fmtBytes(gainBytes)}  (${fmtPct(gainPct)})`;
+  }
+
+  function updateErrorMetrics(results) {
+    const { posStats, relStats, above025, above050, above100, n, bboxStats } = results;
+
+    // Position error
+    document.getElementById("pe-mean").textContent = fmtNum(posStats.mean);
+    document.getElementById("pe-p50").textContent  = fmtNum(posStats.p50);
+    document.getElementById("pe-p90").textContent  = fmtNum(posStats.p90);
+    document.getElementById("pe-p99").textContent  = fmtNum(posStats.p99);
+    document.getElementById("pe-max").textContent  = fmtNum(posStats.max);
+
+    // Relative error
+    document.getElementById("re-mean").textContent = fmtNum(relStats.mean);
+    document.getElementById("re-p50").textContent  = fmtNum(relStats.p50);
+    document.getElementById("re-p90").textContent  = fmtNum(relStats.p90);
+    document.getElementById("re-p99").textContent  = fmtNum(relStats.p99);
+    document.getElementById("re-max").textContent  = fmtNum(relStats.max);
+
+    // Threshold counts
+    const pctOf = v => `${v.toLocaleString()}  (${fmtPct(v / n)})`;
+    document.getElementById("qg-025").textContent = pctOf(above025);
+    document.getElementById("qg-050").textContent = pctOf(above050);
+    document.getElementById("qg-100").textContent = pctOf(above100);
+
+    // Quality gates
+    const setGate = (dotId, valId, pass, val) => {
+      document.getElementById(dotId).className = "gate-dot " + (pass ? "pass" : "fail");
+      const el = document.getElementById(valId);
+      el.textContent = fmtNum(val);
+      el.className = "gate-val " + (pass ? "green" : "red");
+    };
+    setGate("g0-dot", "g0-val", relStats.p90 < 0.25, relStats.p90);
+    setGate("g1-dot", "g1-val", relStats.p99 < 0.50, relStats.p99);
+    setGate("g2-dot", "g2-val", above100 / n < 0.001, above100 / n);
+
+    // Bbox diagonals
+    document.getElementById("bb-avg").textContent = fmtNum(bboxStats.avg);
+    document.getElementById("bb-p90").textContent = fmtNum(bboxStats.p90);
+    document.getElementById("bb-p99").textContent = fmtNum(bboxStats.p99);
+    document.getElementById("bb-max").textContent = fmtNum(bboxStats.max);
+  }
+
+  // ─────────────────────────────────────────────
+  // Load + Quantize
+  // ─────────────────────────────────────────────
+  async function loadAndQuantize() {
+    if (isLoading) return;
+    isLoading = true;
+    loadBtn.disabled = true;
+
+    const { file } = WORLDS[Number(worldSelect.value)];
+    const url = CDN + file;
+
+    // Dispose previous
+    if (originalPacked) { originalPacked.dispose?.(); originalPacked = null; }
+    if (reconPacked)    { reconPacked.dispose?.();    reconPacked    = null; }
+    meshA.packedSplats = null;
+    meshB.packedSplats = null;
+
+    try {
+      // ── Load original ──
+      setStatus("loading", "Fetching " + file.slice(0, 8) + "…");
+      setProgress(0);
+      originalPacked = new PackedSplats({ url });
+      await originalPacked.initialized;
+
+      meshA.packedSplats = originalPacked;
+      setStatus("loading", "Running quantization…");
+
+      // ── Quantize ──
+      const results = await runQuantization(originalPacked, clusterSize);
+
+      // ── Build reconstructed PackedSplats ──
+      reconPacked = new PackedSplats({ packedArray: results.reconArray });
+      await reconPacked.initialized;
+      meshB.packedSplats = reconPacked;
+
+      // ── Update UI ──
+      updateMemoryMetrics(results.n, clusterSize, results);
+      updateErrorMetrics(results);
+      setProgress(0);
+
+      const p90pass = results.relStats.p90 < 0.25;
+      setStatus(
+        "ready",
+        `Done — ${results.numClusters.toLocaleString()} clusters, p90 rel = ${fmtNum(results.relStats.p90, 3)}`
+        + (p90pass ? " ✓" : " ✗")
+      );
+
+      // Auto-enable A/B if not already
+      if (viewMode !== "ab") applyViewMode("ab");
+
+    } catch (err) {
+      console.error(err);
+      setStatus("error", "Error: " + err.message);
+      setProgress(0);
+    }
+
+    isLoading = false;
+    loadBtn.disabled = false;
+  }
+
+  // ─────────────────────────────────────────────
+  // Animation loop
+  // ─────────────────────────────────────────────
+  function animate() {
+    requestAnimationFrame(animate);
+
+    controls.update(localFrame, camera);
+
+    // Render A (original) — always render so sorting stays fresh
+    if (viewMode !== "reconstructed") {
+      rendererA.render(sceneA, camera);
+    }
+    // Render B (reconstructed)
+    if (viewMode !== "original") {
+      rendererB.render(sceneB, camera);
+    }
+  }
+  requestAnimationFrame(animate);
+
+  // ─────────────────────────────────────────────
+  // UI event wiring
+  // ─────────────────────────────────────────────
+
+  // Load button
+  loadBtn.addEventListener("click", loadAndQuantize);
+
+  // Cluster size buttons
+  clusterBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      clusterBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      clusterSize = Number(btn.dataset.size);
+      document.getElementById("m-csize").textContent = clusterSize;
+      // Recompute memory estimate if data loaded
+      if (originalPacked) {
+        updateMemoryMetrics(originalPacked.numSplats, clusterSize, null);
+      }
+    });
+  });
+
+  // View mode buttons
+  viewBtns.forEach(btn => {
+    btn.addEventListener("click", () => applyViewMode(btn.dataset.mode));
+  });
+
+  // Keyboard shortcut: Tab toggles view
+  window.addEventListener("keydown", e => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const modes = ["original", "reconstructed", "ab"];
+      const next = modes[(modes.indexOf(viewMode) + 1) % 3];
+      applyViewMode(next);
+    }
+  });
+
+  // Init view
+  applyViewMode("ab");
+  </script>
+</body>
+</html>
