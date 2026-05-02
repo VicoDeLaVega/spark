@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compression Lab — Position + Scale + Color</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:     #0a0e1a;
+      --bg2:    #111827;
+      --bg3:    #1e2535;
+      --border: #2a3246;
+      --text:   #e2e8f0;
+      --muted:  #64748b;
+      --accent: #6366f1;
+      --green:  #10b981;
+      --warn:   #f59e0b;
+      --red:    #f87171;
+      --cyan:   #22d3ee;
+      --purple: #a78bfa;
+      --pink:   #f472b6;
+      --orange: #fb923c;
+      --panel:  340px;
+    }
+    html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); }
+
+    /* ── Viewport ── */
+    #viewport {
+      position: fixed; top:0; left:0;
+      width: calc(100% - var(--panel)); height:100%;
+      background: #000;
+    }
+    #canvasA, #canvasB {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%; display:block;
+    }
+    #canvasA { z-index:1; }
+    #canvasB { z-index:2; }
+    #ctrl-overlay {
+      position:absolute; inset:0; z-index:3;
+      cursor:grab;
+    }
+    #ctrl-overlay:active { cursor:grabbing; }
+
+    /* Divider */
+    #divider {
+      position:absolute; top:0; bottom:0; width:2px;
+      background:rgba(255,255,255,.4); z-index:8; left:50%;
+      transform:translateX(-50%); display:none; pointer-events:none;
+    }
+    #divider.visible { display:block; }
+    #divider-handle {
+      position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      width:36px; height:36px; border-radius:50%;
+      background:rgba(255,255,255,.9); cursor:ew-resize;
+      pointer-events:all; display:flex; align-items:center;
+      justify-content:center; user-select:none; font-size:14px; color:#000;
+    }
+
+    /* Labels */
+    .vp-label {
+      position:absolute; bottom:20px;
+      font-family:'SF Mono',monospace; font-size:11px; font-weight:700;
+      letter-spacing:1.5px; text-transform:uppercase;
+      padding:4px 10px; border-radius:4px; z-index:7;
+      pointer-events:none; display:none;
+    }
+    .vp-label.visible { display:block; }
+    #label-original {
+      left:16px; background:rgba(0,0,0,.6);
+      color:rgba(255,255,255,.7); border:1px solid rgba(255,255,255,.2);
+    }
+    #label-compressed {
+      background:rgba(16,185,129,.15); color:var(--green);
+      border:1px solid var(--green);
+    }
+
+    /* Keyboard hint */
+    #hint {
+      position:fixed; bottom:16px; left:16px;
+      font-family:'SF Mono',monospace; font-size:10px;
+      color:rgba(255,255,255,.3); pointer-events:none; z-index:6; line-height:1.8;
+    }
+    kbd {
+      background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
+      border-radius:3px; padding:0 4px; font-family:monospace; font-size:10px;
+    }
+
+    /* ── Panel ── */
+    #panel {
+      position:fixed; right:0; top:0; bottom:0; width:var(--panel);
+      background:rgba(10,14,26,.97); border-left:1px solid var(--border);
+      overflow-y:auto; z-index:20;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      font-size:13px; color:var(--text);
+    }
+    #panel::-webkit-scrollbar { width:4px; }
+    #panel::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .panel-hdr {
+      padding:14px 16px 10px; border-bottom:1px solid var(--border);
+    }
+    .panel-hdr h1 { font-size:14px; font-weight:700; color:#fff; }
+    .panel-hdr p  { font-size:11px; color:var(--muted); margin-top:2px; }
+
+    .psec { padding:10px 16px; border-bottom:1px solid var(--border); }
+
+    .slabel {
+      font-size:10px; font-weight:700; letter-spacing:1.2px;
+      text-transform:uppercase; margin-bottom:7px;
+    }
+    .slabel.pos    { color:#60a5fa; }
+    .slabel.color  { color:var(--purple); }
+    .slabel.scale  { color:var(--pink); }
+    .slabel.rot    { color:var(--orange); }
+    .slabel.view   { color:var(--muted); }
+    .slabel.mem    { color:var(--cyan); }
+    .slabel.metric { color:var(--muted); }
+
+    select {
+      width:100%; background:var(--bg3); border:1px solid var(--border);
+      color:var(--text); border-radius:6px; padding:6px 8px; font-size:12px;
+      margin-bottom:8px; cursor:pointer;
+    }
+
+    .btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      background:var(--bg3); border:1px solid var(--border); color:var(--muted);
+      border-radius:6px; padding:5px 10px; font-size:12px; font-weight:600;
+      cursor:pointer; user-select:none; transition:all .12s;
+    }
+    .btn:hover { border-color:var(--accent); color:var(--text); }
+    .btn.active-pos   { background:rgba(96,165,250,.15); border-color:#60a5fa; color:#60a5fa; }
+    .btn.active-color { background:rgba(167,139,250,.15); border-color:var(--purple); color:var(--purple); }
+    .btn.active-scale { background:rgba(244,114,182,.15); border-color:var(--pink); color:var(--pink); }
+    .btn.active-rot   { background:rgba(251,146,60,.15);  border-color:var(--orange); color:var(--orange); }
+    .btn.active-view  { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .btn.primary {
+      width:100%; background:var(--accent); border-color:var(--accent);
+      color:#fff; padding:8px; margin-top:2px;
+    }
+    .btn.primary:hover { opacity:.85; }
+    .btn.primary:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-group { display:flex; gap:5px; flex-wrap:wrap; }
+    .btn-group .btn { flex:1; min-width:0; }
+
+    /* Status */
+    #status-bar {
+      padding:9px 16px; background:var(--bg2);
+      border-bottom:1px solid var(--border);
+      font-size:12px; min-height:38px; display:flex; align-items:center; gap:8px;
+    }
+    #status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--muted); }
+    #status-dot.loading { background:var(--warn); animation:pulse 1s infinite; }
+    #status-dot.ready   { background:var(--green); }
+    #status-dot.error   { background:var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+    #status-text { color:var(--muted); }
+    #progress-wrap { padding:0 16px 8px; display:none; }
+    #progress-wrap.visible { display:block; }
+    #progress-track { height:3px; background:var(--bg3); border-radius:2px; overflow:hidden; }
+    #progress-fill  { height:100%; background:var(--accent); width:0%; transition:width .1s; }
+
+    /* Metric rows */
+    .mtable { display:flex; flex-direction:column; gap:3px; }
+    .mrow { display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
+    .mlabel { color:var(--muted); font-size:12px; white-space:nowrap; flex-shrink:0; }
+    .mval { font-family:'SF Mono',monospace; font-size:11px; color:var(--text); text-align:right; }
+    .mval.cyan   { color:var(--cyan); }
+    .mval.green  { color:var(--green); }
+    .mval.warn   { color:var(--warn); font-weight:700; }
+    .mval.red    { color:var(--red); }
+    .mval.purple { color:var(--purple); }
+    .mval.blue   { color:#60a5fa; }
+
+    .sep { height:1px; background:var(--border); margin:6px 0; }
+
+    /* Compression mode pills */
+    .mode-pills {
+      display:flex; gap:5px; margin-bottom:6px;
+    }
+    .pill {
+      font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;
+      text-transform:uppercase; letter-spacing:.5px;
+    }
+    .pill.pos    { background:rgba(96,165,250,.15); color:#60a5fa; border:1px solid #60a5fa; }
+    .pill.color  { background:rgba(167,139,250,.15); color:var(--purple); border:1px solid var(--purple); }
+    .pill.scale  { background:rgba(244,114,182,.15); color:var(--pink);   border:1px solid var(--pink); }
+    .pill.rot    { background:rgba(251,146,60,.15);  color:var(--orange); border:1px solid var(--orange); }
+    .pill.off    { background:var(--bg3); color:var(--muted); border:1px solid var(--border); }
+
+    /* Gate */
+    .gate { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; }
+    .gate-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--muted); }
+    .gate-dot.pass { background:var(--green); }
+    .gate-dot.fail { background:var(--red); }
+    .gate-label { color:var(--muted); flex:1; }
+    .gate-val { font-family:monospace; font-size:11px; }
+    .gate-val.pass { color:var(--green); }
+    .gate-val.fail { color:var(--red); }
+
+    .subsec-title {
+      font-size:10px; font-weight:700; letter-spacing:1px;
+      text-transform:uppercase; color:var(--muted);
+      margin:8px 0 5px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="viewport">
+  <canvas id="canvasA"></canvas>
+  <canvas id="canvasB"></canvas>
+  <div id="ctrl-overlay"></div>
+  <div id="divider"><div id="divider-handle">⇔</div></div>
+  <span class="vp-label" id="label-original">Original</span>
+  <span class="vp-label" id="label-compressed">Compressed</span>
+</div>
+
+<div id="hint">
+  <kbd>Tab</kbd> toggle view &nbsp;|&nbsp;
+  <kbd>WASD</kbd> move &nbsp;|&nbsp; <kbd>RF</kbd> up/down &nbsp;|&nbsp;
+  click+drag to look
+</div>
+
+<div id="panel">
+  <div class="panel-hdr">
+    <h1>Compression Lab</h1>
+    <p>Position + Scale + Color, independently configurable</p>
+  </div>
+
+  <!-- Scene -->
+  <div class="psec">
+    <div class="slabel view">Scene</div>
+    <select id="world-select"></select>
+    <button class="btn primary" id="load-btn">Run compression</button>
+  </div>
+
+  <!-- Position compression -->
+  <div class="psec">
+    <div class="slabel pos">Position compression</div>
+    <div class="btn-group" id="pos-btns">
+      <button class="btn active-pos" data-size="0">Off</button>
+      <button class="btn" data-size="32">32</button>
+      <button class="btn" data-size="64">64</button>
+      <button class="btn" data-size="128">128</button>
+      <button class="btn" data-size="256">256</button>
+    </div>
+  </div>
+
+  <!-- Scale compression -->
+  <div class="psec">
+    <div class="slabel scale">Scale compression</div>
+    <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
+    <div class="btn-group" id="scale-btns">
+      <button class="btn active-scale" data-size="0">Off</button>
+      <button class="btn" data-size="4">4</button>
+      <button class="btn" data-size="8">8</button>
+      <button class="btn" data-size="16">16</button>
+      <button class="btn" data-size="32">32</button>
+      <button class="btn" data-size="64">64</button>
+      <button class="btn" data-size="128">128</button>
+      <button class="btn" data-size="256">256</button>
+    </div>
+    <div class="subsec-title" style="margin-bottom:4px;">Bits / component</div>
+    <div class="btn-group" id="scalebits-btns">
+      <button class="btn" data-bits="2">2</button>
+      <button class="btn" data-bits="3">3</button>
+      <button class="btn active-scale" data-bits="4">4</button>
+      <button class="btn" data-bits="5">5</button>
+      <button class="btn" data-bits="6">6</button>
+      <button class="btn" data-bits="7">7</button>
+    </div>
+  </div>
+
+  <!-- Rotation compression -->
+  <div class="psec">
+    <div class="slabel rot">Rotation compression</div>
+    <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
+    <div class="btn-group" id="rot-btns">
+      <button class="btn active-rot" data-size="0">Off</button>
+      <button class="btn" data-size="4">4</button>
+      <button class="btn" data-size="8">8</button>
+      <button class="btn" data-size="16">16</button>
+      <button class="btn" data-size="32">32</button>
+      <button class="btn" data-size="64">64</button>
+      <button class="btn" data-size="128">128</button>
+      <button class="btn" data-size="256">256</button>
+    </div>
+    <div class="subsec-title" style="margin-bottom:4px;">Bits / component</div>
+    <div class="btn-group" id="rotbits-btns">
+      <button class="btn" data-bits="2">2</button>
+      <button class="btn" data-bits="3">3</button>
+      <button class="btn active-rot" data-bits="4">4</button>
+      <button class="btn" data-bits="5">5</button>
+      <button class="btn" data-bits="6">6</button>
+      <button class="btn" data-bits="7">7</button>
+    </div>
+  </div>
+
+  <!-- Color compression -->
+  <div class="psec">
+    <div class="slabel color">Color compression (PCA ramp)</div>
+    <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
+    <div class="btn-group" id="color-btns">
+      <button class="btn active-color" data-size="0">Off</button>
+      <button class="btn" data-size="4">4</button>
+      <button class="btn" data-size="8">8</button>
+      <button class="btn" data-size="16">16</button>
+      <button class="btn" data-size="32">32</button>
+      <button class="btn" data-size="64">64</button>
+      <button class="btn" data-size="128">128</button>
+      <button class="btn" data-size="256">256</button>
+    </div>
+    <div class="subsec-title" style="margin-bottom:4px;">Ramp colors</div>
+    <div class="btn-group" id="ramp-btns">
+      <button class="btn" data-ramp="2">2</button>
+      <button class="btn active-color" data-ramp="4">4</button>
+      <button class="btn" data-ramp="8">8</button>
+      <button class="btn" data-ramp="16">16</button>
+    </div>
+    <div class="subsec-title" style="margin-bottom:4px;">Ramp format</div>
+    <div class="btn-group" id="fmt-btns">
+      <button class="btn active-color" data-fmt="888">RGB888 <span style="opacity:.5;font-size:10px">3B</span></button>
+      <button class="btn" data-fmt="565">RGB565 <span style="opacity:.5;font-size:10px">2B</span></button>
+    </div>
+  </div>
+
+  <!-- View mode -->
+  <div class="psec">
+    <div class="slabel view">View</div>
+    <div class="btn-group" id="view-btns">
+      <button class="btn" data-mode="original">Original</button>
+      <button class="btn" data-mode="compressed">Compressed</button>
+      <button class="btn active-view" data-mode="ab">A/B Split</button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <span id="status-text">Pick a scene and run compression</span>
+  </div>
+  <div id="progress-wrap">
+    <div id="progress-track"><div id="progress-fill"></div></div>
+  </div>
+
+  <!-- Memory -->
+  <div class="psec">
+    <div class="slabel mem">Memory (theoretical)</div>
+    <div id="mode-pills" class="mode-pills"></div>
+    <div class="mtable">
+      <div class="mrow"><span class="mlabel">Splats</span><span class="mval" id="m-n">—</span></div>
+      <div class="sep"></div>
+      <div class="subsec-title">Per splat breakdown</div>
+      <div class="mrow"><span class="mlabel">Position (current)</span><span class="mval cyan">6.00 B</span></div>
+      <div class="mrow"><span class="mlabel">Position (compressed)</span><span class="mval blue" id="m-pos-bytes">—</span></div>
+      <div class="mrow"><span class="mlabel">Scale (current)</span><span class="mval cyan">3.00 B</span></div>
+      <div class="mrow"><span class="mlabel">Scale (compressed)</span><span class="mval" style="color:var(--pink)" id="m-scale-bytes">—</span></div>
+      <div class="mrow"><span class="mlabel">Rotation (current)</span><span class="mval cyan">3.00 B</span></div>
+      <div class="mrow"><span class="mlabel">Rotation (compressed)</span><span class="mval" style="color:var(--orange)" id="m-rot-bytes">—</span></div>
+      <div class="mrow"><span class="mlabel">Color RGB (current)</span><span class="mval cyan">3.00 B</span></div>
+      <div class="mrow"><span class="mlabel">Color RGB (compressed)</span><span class="mval purple" id="m-col-bytes">—</span></div>
+      <div class="sep"></div>
+      <div class="mrow"><span class="mlabel">Total current</span><span class="mval cyan" id="m-cur">—</span></div>
+      <div class="mrow"><span class="mlabel">Total compressed</span><span class="mval green" id="m-cmp">—</span></div>
+      <div class="mrow"><span class="mlabel">Gain théorique</span><span class="mval warn" id="m-gain">—</span></div>
+    </div>
+  </div>
+
+  <!-- Position error -->
+  <div class="psec" id="pos-error-section">
+    <div class="slabel pos">Position error</div>
+    <div class="mtable">
+      <div class="mrow"><span class="mlabel">mean</span><span class="mval blue" id="pe-mean">—</span></div>
+      <div class="mrow"><span class="mlabel">p50</span><span class="mval" id="pe-p50">—</span></div>
+      <div class="mrow"><span class="mlabel">p90</span><span class="mval" id="pe-p90">—</span></div>
+      <div class="mrow"><span class="mlabel">p99</span><span class="mval" id="pe-p99">—</span></div>
+      <div class="sep"></div>
+      <div class="mrow"><span class="mlabel">rel p90</span><span class="mval" id="pe-rel90">—</span></div>
+      <div class="mrow"><span class="mlabel">rel p99</span><span class="mval" id="pe-rel99">—</span></div>
+      <div class="gate">
+        <div class="gate-dot" id="pg0-dot"></div>
+        <span class="gate-label">p90 rel &lt; 0.25</span>
+        <span class="gate-val" id="pg0-val">—</span>
+      </div>
+      <div class="gate">
+        <div class="gate-dot" id="pg1-dot"></div>
+        <span class="gate-label">p99 rel &lt; 0.50</span>
+        <span class="gate-val" id="pg1-val">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scale error -->
+  <div class="psec" id="scale-error-section">
+    <div class="slabel scale">Scale error (log-space uint8 units)</div>
+    <div class="mtable">
+      <div class="mrow"><span class="mlabel">mean</span><span class="mval" style="color:var(--pink)" id="se-mean">—</span></div>
+      <div class="mrow"><span class="mlabel">p50</span><span class="mval" id="se-p50">—</span></div>
+      <div class="mrow"><span class="mlabel">p90</span><span class="mval" id="se-p90">—</span></div>
+      <div class="mrow"><span class="mlabel">p99</span><span class="mval" id="se-p99">—</span></div>
+      <div class="gate">
+        <div class="gate-dot" id="sg0-dot"></div>
+        <span class="gate-label">p90 &lt; 8 units</span>
+        <span class="gate-val" id="sg0-val">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rotation error -->
+  <div class="psec" id="rot-error-section">
+    <div class="slabel rot">Rotation error (oct uint8 units)</div>
+    <div class="mtable">
+      <div class="mrow"><span class="mlabel">mean</span><span class="mval" style="color:var(--orange)" id="re-mean">—</span></div>
+      <div class="mrow"><span class="mlabel">p50</span><span class="mval" id="re-p50">—</span></div>
+      <div class="mrow"><span class="mlabel">p90</span><span class="mval" id="re-p90">—</span></div>
+      <div class="mrow"><span class="mlabel">p99</span><span class="mval" id="re-p99">—</span></div>
+      <div class="gate">
+        <div class="gate-dot" id="rg0-dot"></div>
+        <span class="gate-label">p90 &lt; 8 units</span>
+        <span class="gate-val" id="rg0-val">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color error -->
+  <div class="psec" id="col-error-section">
+    <div class="slabel color">Color error (RGB L2, range 0–1)</div>
+    <div class="mtable">
+      <div class="mrow"><span class="mlabel">mean</span><span class="mval purple" id="ce-mean">—</span></div>
+      <div class="mrow"><span class="mlabel">p50</span><span class="mval" id="ce-p50">—</span></div>
+      <div class="mrow"><span class="mlabel">p90</span><span class="mval" id="ce-p90">—</span></div>
+      <div class="mrow"><span class="mlabel">p99</span><span class="mval" id="ce-p99">—</span></div>
+      <div class="sep"></div>
+      <div class="mrow"><span class="mlabel">PSNR</span><span class="mval green" id="ce-psnr">—</span></div>
+      <div class="gate">
+        <div class="gate-dot" id="cg0-dot"></div>
+        <span class="gate-label">p90 error &lt; 0.05</span>
+        <span class="gate-val" id="cg0-val">—</span>
+      </div>
+      <div class="gate">
+        <div class="gate-dot" id="cg1-dot"></div>
+        <span class="gate-label">PSNR &gt; 30 dB</span>
+        <span class="gate-val" id="cg1-val">—</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel -->
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.180.0/three.module.js",
+    "@sparkjsdev/spark": "../../dist/spark.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { SparkRenderer, PackedSplats, SplatMesh, SparkControls, utils } from "@sparkjsdev/spark";
+
+// ── Constants ──────────────────────────────────────────
+const CDN = "https://wlt-ai-cdn.art/tastier_spz_500/";
+const WORLDS = [
+  { label: "Scene A", file: "03facf44-511b-42d0-9ddb-9e2a0227e50e_500k.spz" },
+  { label: "Scene B", file: "1064da41-40b6-47d5-b143-a1cad98605ec_500k.spz" },
+  { label: "Scene C", file: "320ff674-5ec2-4a51-b294-002102c6dca2_500k.spz" },
+  { label: "Scene D", file: "54fad6e4-9c9b-43ba-be6d-f1e31cbe7a95_500k.spz" },
+  { label: "Scene E", file: "78955a27-26e6-43ab-92d1-f22271f32d40_500k.spz" },
+  { label: "Scene F", file: "9d68d5d7-9c49-4fdd-99ed-c101fcbed066_500k.spz" },
+  { label: "Scene G", file: "d295b4a0-b801-4e28-871d-a2477de09862_500k.spz" },
+  { label: "Scene H", file: "fbc2ba1e-bcab-40c0-97c8-26a420f1af2c_500k.spz" },
+];
+const PACKED_BYTES = 16;
+
+// ── State ──────────────────────────────────────────────
+let viewMode    = "ab";
+let posSize     = 0;   // 0 = off
+let colorSize   = 0;   // 0 = off
+let rampColors  = 4;     // number of colors in the PCA ramp
+let rampFmt     = "888"; // "888" = RGB8 (3B/color) | "565" = RGB565 (2B/color)
+let scaleSize   = 0;     // 0 = off
+let scaleBits   = 4;     // bits per scale component
+let rotSize     = 0;     // 0 = off
+let rotBits     = 4;     // bits per rotation component
+let splitX      = 0.5;
+let isDragging  = false;
+let isLoading   = false;
+let originalPacked = null;
+let reconPacked    = null;
+
+// ── DOM ────────────────────────────────────────────────
+const viewport    = document.getElementById("viewport");
+const canvasA     = document.getElementById("canvasA");
+const canvasB     = document.getElementById("canvasB");
+const ctrlOverlay = document.getElementById("ctrl-overlay");
+const divider     = document.getElementById("divider");
+const divHandle   = document.getElementById("divider-handle");
+const lblOrig     = document.getElementById("label-original");
+const lblComp     = document.getElementById("label-compressed");
+const worldSelect = document.getElementById("world-select");
+const loadBtn     = document.getElementById("load-btn");
+const statusDot   = document.getElementById("status-dot");
+const statusText  = document.getElementById("status-text");
+const progressWrap= document.getElementById("progress-wrap");
+const progressFill= document.getElementById("progress-fill");
+
+// ── World select ───────────────────────────────────────
+WORLDS.forEach(({ label }, i) => {
+  const o = document.createElement("option");
+  o.value = i; o.textContent = label;
+  worldSelect.appendChild(o);
+});
+
+// ── THREE.js ───────────────────────────────────────────
+const vpW = () => viewport.clientWidth;
+const vpH = () => viewport.clientHeight;
+
+const rendererA = new THREE.WebGLRenderer({ canvas: canvasA, antialias: false });
+const rendererB = new THREE.WebGLRenderer({ canvas: canvasB, antialias: false });
+rendererA.setPixelRatio(Math.min(devicePixelRatio, 2));
+rendererB.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const sceneA = new THREE.Scene(); sceneA.background = new THREE.Color(0);
+const sceneB = new THREE.Scene(); sceneB.background = new THREE.Color(0);
+
+const camera = new THREE.PerspectiveCamera(65, 1, 0.01, 1000);
+const localFrame = new THREE.Group();
+sceneA.add(localFrame); localFrame.add(camera);
+
+const sparkA = new SparkRenderer({ renderer: rendererA });
+const sparkB = new SparkRenderer({ renderer: rendererB });
+sceneA.add(sparkA); sceneB.add(sparkB);
+
+const meshA = new SplatMesh();
+const meshB = new SplatMesh();
+sparkA.add(meshA); sparkB.add(meshB);
+meshA.rotation.x = Math.PI;
+meshB.rotation.x = Math.PI;
+
+const controls = new SparkControls({ canvas: ctrlOverlay });
+controls.pointerControls.rotateSpeed *= 2.0;
+
+function onResize() {
+  const w = vpW(), h = vpH();
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  rendererA.setSize(w, h); rendererB.setSize(w, h);
+  updateSplit();
+}
+window.addEventListener("resize", onResize);
+onResize();
+
+// ── View mode ──────────────────────────────────────────
+function applyViewMode(mode) {
+  viewMode = mode;
+  document.querySelectorAll("#view-btns .btn").forEach(b =>
+    b.classList.toggle("active-view", b.dataset.mode === mode));
+
+  if (mode === "original") {
+    canvasA.style.display = "block";
+    canvasB.style.display = "none";
+    divider.classList.remove("visible");
+    lblOrig.classList.remove("visible"); lblComp.classList.remove("visible");
+  } else if (mode === "compressed") {
+    canvasA.style.display = "none";
+    canvasB.style.display = "block"; canvasB.style.clipPath = "none";
+    divider.classList.remove("visible");
+    lblOrig.classList.remove("visible"); lblComp.classList.remove("visible");
+  } else {
+    canvasA.style.display = "block"; canvasB.style.display = "block";
+    divider.classList.add("visible");
+    lblOrig.classList.add("visible"); lblComp.classList.add("visible");
+    updateSplit();
+  }
+}
+
+function updateSplit() {
+  if (viewMode !== "ab") return;
+  const px = Math.round(splitX * vpW());
+  divider.style.left = px + "px";
+  canvasB.style.clipPath = `inset(0 0 0 ${px}px)`;
+  lblComp.style.left = (px + 16) + "px";
+}
+
+// ── Divider drag ───────────────────────────────────────
+divHandle.addEventListener("mousedown", e => { isDragging = true; e.stopPropagation(); e.preventDefault(); });
+divHandle.addEventListener("touchstart", e => { isDragging = true; e.stopPropagation(); e.preventDefault(); }, { passive: false });
+window.addEventListener("mousemove", e => {
+  if (!isDragging) return;
+  const r = viewport.getBoundingClientRect();
+  splitX = Math.max(0.05, Math.min(0.95, (e.clientX - r.left) / r.width));
+  updateSplit();
+});
+window.addEventListener("touchmove", e => {
+  if (!isDragging) return;
+  const r = viewport.getBoundingClientRect();
+  splitX = Math.max(0.05, Math.min(0.95, (e.touches[0].clientX - r.left) / r.width));
+  updateSplit();
+}, { passive: true });
+window.addEventListener("mouseup",  () => { isDragging = false; });
+window.addEventListener("touchend", () => { isDragging = false; });
+
+// ── Status helpers ─────────────────────────────────────
+function setStatus(state, msg) { statusDot.className = state; statusText.textContent = msg; }
+function setProgress(f) {
+  progressFill.style.width = Math.round(f * 100) + "%";
+  progressWrap.classList.toggle("visible", f > 0 && f < 1);
+}
+function tick() { return new Promise(r => setTimeout(r, 0)); }
+
+// ── Morton sort ────────────────────────────────────────
+function expandBits(v) {
+  v = v & 0x3ff;
+  v = (v | (v << 16)) & 0x030000ff;
+  v = (v | (v <<  8)) & 0x0300f00f;
+  v = (v | (v <<  4)) & 0x030c30c3;
+  v = (v | (v <<  2)) & 0x09249249;
+  return v >>> 0;
+}
+function morton3D(x, y, z) {
+  return (expandBits(x) | (expandBits(y) << 1) | (expandBits(z) << 2)) >>> 0;
+}
+
+// ── Percentiles ────────────────────────────────────────
+function pct(arr) {
+  const s = arr.slice().sort(); const n = s.length;
+  return {
+    mean: s.reduce((a, v) => a + v, 0) / n,
+    p50: s[Math.floor(.50 * n)], p90: s[Math.floor(.90 * n)],
+    p99: s[Math.floor(.99 * n)], max: s[n - 1],
+  };
+}
+
+// ── PCA on 3D points (power iteration) ────────────────
+function pca3(colors) {
+  const n = colors.length;
+  if (n === 0) return { mean: [0, 0, 0], axis: [1, 0, 0], minT: 0, maxT: 0 };
+
+  let mr = 0, mg = 0, mb = 0;
+  for (const c of colors) { mr += c[0]; mg += c[1]; mb += c[2]; }
+  mr /= n; mg /= n; mb /= n;
+
+  // Covariance matrix (upper triangle)
+  let cxx = 0, cxy = 0, cxz = 0, cyy = 0, cyz = 0, czz = 0;
+  for (const c of colors) {
+    const dr = c[0] - mr, dg = c[1] - mg, db = c[2] - mb;
+    cxx += dr*dr; cxy += dr*dg; cxz += dr*db;
+    cyy += dg*dg; cyz += dg*db; czz += db*db;
+  }
+  cxx /= n; cxy /= n; cxz /= n; cyy /= n; cyz /= n; czz /= n;
+
+  // Power iteration — dominant eigenvector
+  let ax = 1, ay = 0, az = 0;
+  for (let iter = 0; iter < 24; iter++) {
+    const nx = cxx*ax + cxy*ay + cxz*az;
+    const ny = cxy*ax + cyy*ay + cyz*az;
+    const nz = cxz*ax + cyz*ay + czz*az;
+    const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+    if (len < 1e-12) break;
+    ax = nx/len; ay = ny/len; az = nz/len;
+  }
+
+  // Project onto axis, use p2/p98 to clip outliers
+  const projs = colors.map(c => (c[0]-mr)*ax + (c[1]-mg)*ay + (c[2]-mb)*az);
+  projs.sort((a, b) => a - b);
+  const minT = projs[Math.max(0, Math.floor(0.02 * projs.length))];
+  const maxT = projs[Math.min(projs.length - 1, Math.floor(0.98 * projs.length))];
+
+  return { mean: [mr, mg, mb], axis: [ax, ay, az], minT, maxT };
+}
+
+// ── RGB565 quantization (round-trip through 5/6/5 bits) ───
+function quantize565([r, g, b]) {
+  const r5 = Math.round(r / 255 * 31);
+  const g6 = Math.round(g / 255 * 63);
+  const b5 = Math.round(b / 255 * 31);
+  return [
+    Math.round(r5 / 31 * 255),
+    Math.round(g6 / 63 * 255),
+    Math.round(b5 / 31 * 255),
+  ];
+}
+
+// ── Build N-color PCA ramp ─────────────────────────────
+function buildRamp({ mean, axis, minT, maxT }, N, fmt) {
+  const range = maxT - minT;
+  const quant = fmt === "565" ? quantize565 : c => c;
+  if (range < 1e-6 || N < 2) {
+    // Degenerate cluster — all same color
+    const c = quant(mean.map(v => Math.min(255, Math.max(0, Math.round(v * 255)))));
+    return Array.from({ length: Math.max(N, 2) }, () => c);
+  }
+  return Array.from({ length: N }, (_, k) => {
+    const t = k / (N - 1);
+    const proj = minT + t * range;
+    const rgb = mean.map((m, i) =>
+      Math.min(255, Math.max(0, Math.round((m + axis[i] * proj) * 255)))
+    );
+    return quant(rgb);
+  });
+}
+
+// ── Sample N-texel ramp ────────────────────────────────
+function sampleRamp(ramp, rampCoord) {
+  const N = ramp.length;
+  const u = rampCoord / 255;
+  const x = u * (N - 1);
+  const i = Math.min(N - 2, Math.floor(x));
+  const f = x - i; // (x - i) so u=1 → f=1 → last texel is reachable
+  return [0, 1, 2].map(ch => (ramp[i][ch] + f * (ramp[i+1][ch] - ramp[i][ch])) / 255);
+}
+
+// ── Main compression pipeline ──────────────────────────
+async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, rotC, rBits) {
+  const n   = packed.numSplats;
+  const src = packed.packedArray;
+  const enc = packed.splatEncoding;
+
+  const anyPos   = posC   > 0;
+  const anyScale = scaleC > 0;
+  const anyRot   = rotC   > 0;
+  const anyColor = colorC > 0;
+
+  // ── Step 1: Unpack ─────────────────────────────────
+  setStatus("loading", `Unpacking ${n.toLocaleString()} splats…`);
+  setProgress(0); await tick();
+
+  const cx = new Float32Array(n), cy = new Float32Array(n), cz = new Float32Array(n);
+  const scaleRef = new Float32Array(n);
+  const cr = new Float32Array(n), cg = new Float32Array(n), cb = new Float32Array(n);
+
+  // Extract color in raw normalized [0,1] space from the packed bits directly.
+  // This avoids any rgbMin/rgbMax encoding range issues — the ramp and write-back
+  // also operate in this same raw uint8-normalized space.
+  for (let i = 0; i < n; i++) {
+    const { center, scales } = utils.unpackSplat(src, i, enc);
+    cx[i] = center.x; cy[i] = center.y; cz[i] = center.z;
+    scaleRef[i] = Math.max(scales.x, scales.y, scales.z);
+    const w0 = src[i * 4];
+    cr[i] = (w0 & 0xff) / 255;
+    cg[i] = ((w0 >>> 8)  & 0xff) / 255;
+    cb[i] = ((w0 >>> 16) & 0xff) / 255;
+    if (i % 100000 === 0) { setProgress(i / n * 0.15); await tick(); }
+  }
+
+  // ── Step 2: Global bounds + Morton sort ───────────
+  setStatus("loading", "Morton sort…"); setProgress(0.15); await tick();
+
+  let gMinX = Infinity, gMinY = Infinity, gMinZ = Infinity;
+  let gMaxX = -Infinity, gMaxY = -Infinity, gMaxZ = -Infinity;
+  for (let i = 0; i < n; i++) {
+    if (cx[i] < gMinX) gMinX = cx[i]; if (cx[i] > gMaxX) gMaxX = cx[i];
+    if (cy[i] < gMinY) gMinY = cy[i]; if (cy[i] > gMaxY) gMaxY = cy[i];
+    if (cz[i] < gMinZ) gMinZ = cz[i]; if (cz[i] > gMaxZ) gMaxZ = cz[i];
+  }
+  const gRX = gMaxX - gMinX || 1, gRY = gMaxY - gMinY || 1, gRZ = gMaxZ - gMinZ || 1;
+  const MAX_I = 1023;
+
+  const mortonCodes = new Uint32Array(n);
+  for (let i = 0; i < n; i++) {
+    mortonCodes[i] = morton3D(
+      Math.min(MAX_I, Math.floor((cx[i]-gMinX)/gRX*MAX_I)),
+      Math.min(MAX_I, Math.floor((cy[i]-gMinY)/gRY*MAX_I)),
+      Math.min(MAX_I, Math.floor((cz[i]-gMinZ)/gRZ*MAX_I))
+    );
+  }
+
+  const indices = Array.from({ length: n }, (_, i) => i);
+  indices.sort((a, b) => mortonCodes[a] - mortonCodes[b]);
+
+  setProgress(0.4); await tick();
+
+  const reconArray  = new Uint32Array(src); // full copy
+  const posErrors   = anyPos   ? new Float32Array(n) : null;
+  const relErrors   = anyPos   ? new Float32Array(n) : null;
+  const scaleErrors = anyScale ? new Float32Array(n) : null;
+  const rotErrors   = anyRot   ? new Float32Array(n) : null;
+  const colErrors   = anyColor ? new Float32Array(n) : null;
+
+  // ── Step 3a: Position quantization ────────────────
+  if (anyPos) {
+    setStatus("loading", `Position quant (c=${posC})…`);
+    const numC = Math.ceil(n / posC);
+    for (let ci = 0; ci < numC; ci++) {
+      const start = ci * posC, end = Math.min(start + posC, n);
+      let cMinX = Infinity, cMinY = Infinity, cMinZ = Infinity;
+      let cMaxX = -Infinity, cMaxY = -Infinity, cMaxZ = -Infinity;
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        if (cx[oi] < cMinX) cMinX = cx[oi]; if (cx[oi] > cMaxX) cMaxX = cx[oi];
+        if (cy[oi] < cMinY) cMinY = cy[oi]; if (cy[oi] > cMaxY) cMaxY = cy[oi];
+        if (cz[oi] < cMinZ) cMinZ = cz[oi]; if (cz[oi] > cMaxZ) cMaxZ = cz[oi];
+      }
+      const rX = cMaxX-cMinX||1e-9, rY = cMaxY-cMinY||1e-9, rZ = cMaxZ-cMinZ||1e-9;
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        const ox = cx[oi], oy = cy[oi], oz = cz[oi];
+        const qx = Math.min(255, Math.max(0, Math.round(255*(ox-cMinX)/rX)));
+        const qy = Math.min(255, Math.max(0, Math.round(255*(oy-cMinY)/rY)));
+        const qz = Math.min(255, Math.max(0, Math.round(255*(oz-cMinZ)/rZ)));
+        const rx = cMinX+(qx/255)*rX, ry = cMinY+(qy/255)*rY, rz = cMinZ+(qz/255)*rZ;
+        const pe = Math.sqrt((rx-ox)**2+(ry-oy)**2+(rz-oz)**2);
+        posErrors[oi] = pe;
+        relErrors[oi] = pe / Math.max(scaleRef[oi], 1e-6);
+        utils.setPackedSplatCenter(reconArray, oi, rx, ry, rz);
+      }
+      if (ci % 200 === 0) { setProgress(0.4 + (ci/numC)*0.25); await tick(); }
+    }
+  }
+
+  // ── Step 3b: Scale quantization ───────────────────
+  if (anyScale) {
+    setStatus("loading", `Scale quant (c=${scaleC}, ${sBits} bits/comp)…`);
+    const levels = (1 << sBits) - 1;
+    const numC = Math.ceil(n / scaleC);
+    for (let ci = 0; ci < numC; ci++) {
+      const start = ci * scaleC, end = Math.min(start + scaleC, n);
+
+      // Find min/max uint8 log-scale per component in this cluster
+      let mnX = 255, mxX = 0, mnY = 255, mxY = 0, mnZ = 255, mxZ = 0;
+      for (let j = start; j < end; j++) {
+        const w3 = src[indices[j] * 4 + 3];
+        const sx = w3 & 0xff, sy = (w3 >>> 8) & 0xff, sz = (w3 >>> 16) & 0xff;
+        if (sx < mnX) mnX = sx; if (sx > mxX) mxX = sx;
+        if (sy < mnY) mnY = sy; if (sy > mxY) mxY = sy;
+        if (sz < mnZ) mnZ = sz; if (sz > mxZ) mxZ = sz;
+      }
+      const rX = mxX - mnX || 1, rY = mxY - mnY || 1, rZ = mxZ - mnZ || 1;
+
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        const w3 = src[oi * 4 + 3];
+        const sx = w3 & 0xff, sy = (w3 >>> 8) & 0xff, sz = (w3 >>> 16) & 0xff;
+        const quatZ = (w3 >>> 24) & 0xff;
+
+        // Quantize within cluster range
+        const qx = Math.round((sx - mnX) / rX * levels);
+        const qy = Math.round((sy - mnY) / rY * levels);
+        const qz = Math.round((sz - mnZ) / rZ * levels);
+        const rx = Math.round(qx / levels * rX) + mnX;
+        const ry = Math.round(qy / levels * rY) + mnY;
+        const rz = Math.round(qz / levels * rZ) + mnZ;
+
+        scaleErrors[oi] = Math.sqrt((rx-sx)**2 + (ry-sy)**2 + (rz-sz)**2);
+        reconArray[oi * 4 + 3] = (rx & 0xff) | ((ry & 0xff) << 8) | ((rz & 0xff) << 16) | (quatZ << 24);
+      }
+      if (ci % 200 === 0) { setProgress(0.65 + (ci/numC)*0.1); await tick(); }
+    }
+  }
+
+  // ── Step 3c: Rotation quantization ────────────────
+  if (anyRot) {
+    setStatus("loading", `Rotation quant (c=${rotC}, ${rBits} bits/comp)…`);
+    const levels = (1 << rBits) - 1;
+    const numC = Math.ceil(n / rotC);
+    for (let ci = 0; ci < numC; ci++) {
+      const start = ci * rotC, end = Math.min(start + rotC, n);
+
+      // Quat bytes: quatX/Y in word2 bits [16-23]/[24-31], quatZ in word3 bits [24-31]
+      // Read from ORIGINAL src to get unmodified quat values
+      let mnX = 255, mxX = 0, mnY = 255, mxY = 0, mnZ = 255, mxZ = 0;
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        const w2 = src[oi * 4 + 2], w3 = src[oi * 4 + 3];
+        const qx = (w2 >>> 16) & 0xff, qy = (w2 >>> 24) & 0xff, qz = (w3 >>> 24) & 0xff;
+        if (qx < mnX) mnX = qx; if (qx > mxX) mxX = qx;
+        if (qy < mnY) mnY = qy; if (qy > mxY) mxY = qy;
+        if (qz < mnZ) mnZ = qz; if (qz > mxZ) mxZ = qz;
+      }
+      const rX = mxX - mnX || 1, rY = mxY - mnY || 1, rZ = mxZ - mnZ || 1;
+
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        const w2 = src[oi * 4 + 2], w3 = src[oi * 4 + 3];
+        const qx = (w2 >>> 16) & 0xff, qy = (w2 >>> 24) & 0xff, qz = (w3 >>> 24) & 0xff;
+
+        const qqx = Math.round((qx - mnX) / rX * levels);
+        const qqy = Math.round((qy - mnY) / rY * levels);
+        const qqz = Math.round((qz - mnZ) / rZ * levels);
+        const rqx = Math.round(qqx / levels * rX) + mnX;
+        const rqy = Math.round(qqy / levels * rY) + mnY;
+        const rqz = Math.round(qqz / levels * rZ) + mnZ;
+
+        rotErrors[oi] = Math.sqrt((rqx-qx)**2 + (rqy-qy)**2 + (rqz-qz)**2);
+
+        // Write back: preserve centerZ (bits 0-15 of word2) and scales (bits 0-23 of word3)
+        // Read from reconArray so we don't overwrite pos/scale changes already applied
+        reconArray[oi * 4 + 2] = (reconArray[oi * 4 + 2] & 0x0000ffff) | (rqx << 16) | (rqy << 24);
+        reconArray[oi * 4 + 3] = (reconArray[oi * 4 + 3] & 0x00ffffff) | (rqz << 24);
+      }
+      if (ci % 200 === 0) { setProgress(0.75 + (ci/numC)*0.1); await tick(); }
+    }
+  }
+
+  // ── Step 3d: Color PCA ramp ────────────────────────
+  if (anyColor) {
+    setStatus("loading", `Color ramp PCA (c=${colorC})…`);
+    const numC = Math.ceil(n / colorC);
+    for (let ci = 0; ci < numC; ci++) {
+      const start = ci * colorC, end = Math.min(start + colorC, n);
+
+      // Collect RGB for this cluster
+      const colors = [];
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        colors.push([cr[oi], cg[oi], cb[oi]]);
+      }
+
+      // PCA + ramp
+      const pca  = pca3(colors);
+      const ramp = buildRamp(pca, nRamp, fmt);
+      const { mean, axis, minT, maxT } = pca;
+      const range = maxT - minT;
+
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        const r0 = cr[oi], g0 = cg[oi], b0 = cb[oi];
+
+        // Encode rampCoord
+        let rampCoord = 0;
+        if (range > 1e-6) {
+          const proj = (r0-mean[0])*axis[0] + (g0-mean[1])*axis[1] + (b0-mean[2])*axis[2];
+          rampCoord = Math.min(255, Math.max(0, Math.round(((proj-minT)/range)*255)));
+        }
+
+        // Reconstruct
+        const [rr, rg, rb] = sampleRamp(ramp, rampCoord);
+
+        // Color error (L2 in [0,1] space)
+        if (colErrors) {
+          colErrors[oi] = Math.sqrt((rr-r0)**2 + (rg-g0)**2 + (rb-b0)**2);
+        }
+
+        // Write back RGB (preserve alpha byte)
+        const i4 = oi * 4;
+        const uA = (src[i4] >>> 24) & 0xff;
+        const uR = Math.min(255, Math.max(0, Math.round(rr * 255)));
+        const uG = Math.min(255, Math.max(0, Math.round(rg * 255)));
+        const uB = Math.min(255, Math.max(0, Math.round(rb * 255)));
+        reconArray[i4] = uR | (uG << 8) | (uB << 16) | (uA << 24);
+      }
+
+      if (ci % 200 === 0) { setProgress(0.85 + (ci/numC)*0.1); await tick(); }
+    }
+  }
+
+  // ── Step 4: Stats ──────────────────────────────────
+  setStatus("loading", "Computing stats…"); setProgress(0.9); await tick();
+
+  const posStats   = anyPos   ? pct(posErrors)   : null;
+  const relStats   = anyPos   ? pct(relErrors)   : null;
+  const scaleStats = anyScale ? pct(scaleErrors) : null;
+  const rotStats   = anyRot   ? pct(rotErrors)   : null;
+  const colStats   = anyColor ? pct(colErrors)   : null;
+
+  // MSE for PSNR
+  let mse = 0;
+  if (anyColor) {
+    for (let i = 0; i < n; i++) mse += colErrors[i] * colErrors[i];
+    mse /= n * 3; // per channel
+  }
+  const psnr = anyColor && mse > 0 ? 10 * Math.log10(1 / mse) : Infinity;
+
+  setProgress(1);
+  return { reconArray, n, posStats, relStats, scaleStats, rotStats, colStats, psnr,
+           anyPos, anyScale, anyRot, anyColor, nRamp, fmt, sBits, scaleC, rotC, rBits };
+}
+
+// ── Format helpers ─────────────────────────────────────
+function fmtB(b) {
+  if (!Number.isFinite(b)) return "—";
+  return b >= 1048576 ? (b/1048576).toFixed(2)+" MiB"
+       : b >= 1024    ? (b/1024).toFixed(1)+" KiB"
+       : b+" B";
+}
+const f4 = v => Number.isFinite(v) ? v.toFixed(4) : "—";
+const f2 = v => Number.isFinite(v) ? v.toFixed(2) : "—";
+const fPct = v => (v*100).toFixed(1)+" %";
+
+// ── Update memory panel ────────────────────────────────
+function updateMemory(n, overrideRamp, overrideFmt, overrideScaleC, overrideSBits, overrideRotC, overrideRBits) {
+  const rampColors_  = overrideRamp   ?? rampColors;
+  const rampFmt_     = overrideFmt    ?? rampFmt;
+  const rampBpc      = rampFmt_ === "565" ? 2 : 3;
+  const scaleSize_   = overrideScaleC ?? scaleSize;
+  const scaleBits_   = overrideSBits  ?? scaleBits;
+  const rotSize_     = overrideRotC   ?? rotSize;
+  const rotBits_     = overrideRBits  ?? rotBits;
+  const pills = document.getElementById("mode-pills");
+  pills.innerHTML = "";
+  const mkPill = (label, cls) => {
+    const p = document.createElement("span");
+    p.className = "pill " + cls; p.textContent = label; pills.appendChild(p);
+  };
+  mkPill(posSize    > 0 ? `Pos c=${posSize}`                              : "Pos off", posSize    > 0 ? "pos"   : "off");
+  mkPill(scaleSize_ > 0 ? `Sc c=${scaleSize_} ${scaleBits_}b`  : "Sc off",  scaleSize_ > 0 ? "scale" : "off");
+  mkPill(rotSize_   > 0 ? `Rot c=${rotSize_} ${rotBits_}b`    : "Rot off", rotSize_   > 0 ? "rot"   : "off");
+  mkPill(colorSize  > 0 ? `Col c=${colorSize} r=${rampColors_} ${rampFmt_}` : "Col off", colorSize > 0 ? "color" : "off");
+
+  const posBytes   = posSize    > 0 ? 3 + 24/posSize                          : 6;
+  const scaleBytes = scaleSize_ > 0 ? (scaleBits_ * 3 / 8) + 6 / scaleSize_ : 3;
+  const rotBytes   = rotSize_   > 0 ? (rotBits_   * 3 / 8) + 6 / rotSize_   : 3;
+  const colorBytes = colorSize  > 0 ? 1 + (rampColors_ * rampBpc) / colorSize : 3;
+  // 16 bytes = 6 pos + 3 scale + 3 rot + 3 color + 1 opacity
+  const cmpTotal = PACKED_BYTES - 6 + posBytes - 3 + scaleBytes - 3 + rotBytes - 3 + colorBytes;
+  const gain = (PACKED_BYTES - cmpTotal) / PACKED_BYTES;
+
+  document.getElementById("m-n").textContent            = n ? n.toLocaleString() : "—";
+  document.getElementById("m-pos-bytes").textContent   = posSize    > 0 ? posBytes.toFixed(4)+" B"   : "—";
+  document.getElementById("m-scale-bytes").textContent = scaleSize_ > 0 ? scaleBytes.toFixed(4)+" B" : "—";
+  document.getElementById("m-rot-bytes").textContent   = rotSize_   > 0 ? rotBytes.toFixed(4)+" B"   : "—";
+  document.getElementById("m-col-bytes").textContent   = colorSize  > 0 ? colorBytes.toFixed(4)+" B" : "—";
+  document.getElementById("m-cur").textContent  = n ? fmtB(n * PACKED_BYTES) : "—";
+  document.getElementById("m-cmp").textContent  = n ? fmtB(n * cmpTotal)     : "—";
+  document.getElementById("m-gain").textContent = n
+    ? `−${fmtB(n*(PACKED_BYTES-cmpTotal))}  (${fPct(gain)})`
+    : "—";
+}
+
+// ── Update error panels ────────────────────────────────
+function gate(dotId, valId, pass, val, fmt) {
+  document.getElementById(dotId).className = "gate-dot " + (pass ? "pass" : "fail");
+  const el = document.getElementById(valId);
+  el.textContent = fmt(val);
+  el.className   = "gate-val " + (pass ? "pass" : "fail");
+}
+
+function updateErrors(results) {
+  if (!results) {
+    ["pe-mean","pe-p50","pe-p90","pe-p99","pe-rel90","pe-rel99",
+     "se-mean","se-p50","se-p90","se-p99",
+     "re-mean","re-p50","re-p90","re-p99",
+     "ce-mean","ce-p50","ce-p90","ce-p99","ce-psnr"].forEach(id => {
+      document.getElementById(id).textContent = "—";
+    });
+    ["pg0-dot","pg1-dot","sg0-dot","rg0-dot","cg0-dot","cg1-dot"].forEach(id =>
+      document.getElementById(id).className = "gate-dot");
+    ["pg0-val","pg1-val","sg0-val","rg0-val","cg0-val","cg1-val"].forEach(id =>
+      document.getElementById(id).textContent = "—");
+    return;
+  }
+  const { posStats, relStats, scaleStats, rotStats, colStats, psnr,
+          anyPos, anyScale, anyRot, anyColor } = results;
+
+  if (anyPos && posStats) {
+    document.getElementById("pe-mean").textContent = f4(posStats.mean);
+    document.getElementById("pe-p50").textContent  = f4(posStats.p50);
+    document.getElementById("pe-p90").textContent  = f4(posStats.p90);
+    document.getElementById("pe-p99").textContent  = f4(posStats.p99);
+    document.getElementById("pe-rel90").textContent = f4(relStats.p90);
+    document.getElementById("pe-rel99").textContent = f4(relStats.p99);
+    gate("pg0-dot","pg0-val", relStats.p90 < 0.25, relStats.p90, f4);
+    gate("pg1-dot","pg1-val", relStats.p99 < 0.50, relStats.p99, f4);
+  }
+
+  if (anyScale && scaleStats) {
+    document.getElementById("se-mean").textContent = f4(scaleStats.mean);
+    document.getElementById("se-p50").textContent  = f4(scaleStats.p50);
+    document.getElementById("se-p90").textContent  = f4(scaleStats.p90);
+    document.getElementById("se-p99").textContent  = f4(scaleStats.p99);
+    gate("sg0-dot","sg0-val", scaleStats.p90 < 8, scaleStats.p90, f4);
+  }
+
+  if (anyRot && rotStats) {
+    document.getElementById("re-mean").textContent = f4(rotStats.mean);
+    document.getElementById("re-p50").textContent  = f4(rotStats.p50);
+    document.getElementById("re-p90").textContent  = f4(rotStats.p90);
+    document.getElementById("re-p99").textContent  = f4(rotStats.p99);
+    gate("rg0-dot","rg0-val", rotStats.p90 < 8, rotStats.p90, f4);
+  }
+
+  if (anyColor && colStats) {
+    document.getElementById("ce-mean").textContent = f4(colStats.mean);
+    document.getElementById("ce-p50").textContent  = f4(colStats.p50);
+    document.getElementById("ce-p90").textContent  = f4(colStats.p90);
+    document.getElementById("ce-p99").textContent  = f4(colStats.p99);
+    document.getElementById("ce-psnr").textContent = Number.isFinite(psnr) ? f2(psnr)+" dB" : "∞";
+    gate("cg0-dot","cg0-val", colStats.p90 < 0.05,  colStats.p90, f4);
+    gate("cg1-dot","cg1-val", psnr > 30, psnr, v => f2(v)+" dB");
+  }
+}
+
+// ── Load & compress ────────────────────────────────────
+async function loadAndCompress() {
+  if (isLoading) return;
+  isLoading = true; loadBtn.disabled = true;
+
+  const { file } = WORLDS[Number(worldSelect.value)];
+  const url = CDN + file;
+
+  if (originalPacked) { originalPacked.dispose?.(); originalPacked = null; }
+  if (reconPacked)    { reconPacked.dispose?.();    reconPacked    = null; }
+  meshA.packedSplats = null; meshB.packedSplats = null;
+
+  updateMemory(null);
+  updateErrors(null);
+
+  try {
+    setStatus("loading", "Fetching…"); setProgress(0);
+    originalPacked = new PackedSplats({ url });
+    await originalPacked.initialized;
+    meshA.packedSplats = originalPacked;
+
+    const doAnything = posSize > 0 || colorSize > 0 || scaleSize > 0 || rotSize > 0;
+    if (!doAnything) {
+      // Both off — just show original in both
+      meshB.packedSplats = originalPacked;
+      updateMemory(originalPacked.numSplats);
+      setStatus("ready", "No compression active — both views show original");
+      setProgress(0);
+    } else {
+      const results = await runCompression(originalPacked, posSize, colorSize, rampColors, rampFmt, scaleSize, scaleBits, rotSize, rotBits);
+      reconPacked = new PackedSplats({ packedArray: results.reconArray });
+      await reconPacked.initialized;
+      meshB.packedSplats = reconPacked;
+
+      updateMemory(results.n, results.nRamp, results.fmt, results.scaleC, results.sBits, results.rotC, results.rBits);
+      updateErrors(results);
+      setProgress(0);
+
+      const bits = [];
+      if (posSize > 0)   bits.push(`pos c=${posSize} p99rel=${f4(results.relStats?.p99)}`);
+      if (colorSize > 0) bits.push(`col c=${colorSize} PSNR=${f2(results.psnr)} dB`);
+      setStatus("ready", bits.join(" · "));
+    }
+
+    if (viewMode !== "ab") applyViewMode("ab");
+
+  } catch (err) {
+    console.error(err);
+    setStatus("error", "Error: " + err.message);
+    setProgress(0);
+  }
+
+  isLoading = false; loadBtn.disabled = false;
+}
+
+// ── Animation loop ─────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update(localFrame, camera);
+  if (viewMode !== "compressed") rendererA.render(sceneA, camera);
+  if (viewMode !== "original")   rendererB.render(sceneB, camera);
+}
+requestAnimationFrame(animate);
+
+// ── UI wiring ──────────────────────────────────────────
+loadBtn.addEventListener("click", loadAndCompress);
+
+document.querySelectorAll("#pos-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#pos-btns .btn").forEach(b => b.classList.remove("active-pos"));
+    btn.classList.add("active-pos");
+    posSize = Number(btn.dataset.size);
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#color-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#color-btns .btn").forEach(b => b.classList.remove("active-color"));
+    btn.classList.add("active-color");
+    colorSize = Number(btn.dataset.size);
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#ramp-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#ramp-btns .btn").forEach(b => b.classList.remove("active-color"));
+    btn.classList.add("active-color");
+    rampColors = Number(btn.dataset.ramp);
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#scale-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#scale-btns .btn").forEach(b => b.classList.remove("active-scale"));
+    btn.classList.add("active-scale");
+    scaleSize = Number(btn.dataset.size);
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#scalebits-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#scalebits-btns .btn").forEach(b => b.classList.remove("active-scale"));
+    btn.classList.add("active-scale");
+    scaleBits = Number(btn.dataset.bits);
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#rot-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#rot-btns .btn").forEach(b => b.classList.remove("active-rot"));
+    btn.classList.add("active-rot");
+    rotSize = Number(btn.dataset.size);
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#rotbits-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#rotbits-btns .btn").forEach(b => b.classList.remove("active-rot"));
+    btn.classList.add("active-rot");
+    rotBits = Number(btn.dataset.bits);
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#fmt-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#fmt-btns .btn").forEach(b => b.classList.remove("active-color"));
+    btn.classList.add("active-color");
+    rampFmt = btn.dataset.fmt;
+    updateMemory(originalPacked?.numSplats ?? null);
+  });
+});
+
+document.querySelectorAll("#view-btns .btn").forEach(btn =>
+  btn.addEventListener("click", () => applyViewMode(btn.dataset.mode)));
+
+window.addEventListener("keydown", e => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const modes = ["original", "compressed", "ab"];
+    applyViewMode(modes[(modes.indexOf(viewMode) + 1) % 3]);
+  }
+});
+
+applyViewMode("ab");
+updateMemory(null);
+</script>
+</body>
+</html>
