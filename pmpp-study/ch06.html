@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Ch.6 — Performance Considerations</title>
+<style>
+:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2234;--accent:#00d4ff;--accent2:#7c3aed;--green:#10b981;--orange:#f59e0b;--red:#ef4444;--text:#e2e8f0;--muted:#94a3b8;--border:#1e2d45;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.7;}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:8px;overflow-x:auto;font-size:12px;flex-wrap:nowrap;}
+nav a{color:var(--muted);text-decoration:none;padding:12px 6px;white-space:nowrap;border-bottom:2px solid transparent;transition:.2s;}
+nav a:hover,nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+nav .home{color:var(--accent);font-weight:600;margin-right:8px;}
+.hero{background:linear-gradient(135deg,#0a0e1a 0%,#0d1b3e 60%,#1a0a2e 100%);padding:40px;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 0% 50%,rgba(0,212,255,0.06) 0%,transparent 60%);pointer-events:none;}
+.part-badge{display:inline-block;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:var(--accent);padding:3px 12px;border-radius:20px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;}
+.hero h1{font-size:clamp(22px,4vw,38px);font-weight:800;background:linear-gradient(135deg,#fff 0%,var(--accent) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px;}
+.hero .subtitle{color:var(--muted);font-size:14px;margin-bottom:16px;}
+.pager{display:flex;gap:12px;margin-top:16px;}
+.pager a{color:var(--accent);text-decoration:none;font-size:13px;opacity:.8;}
+.pager a:hover{opacity:1;}
+.container{max-width:900px;margin:0 auto;padding:40px;}
+h2{font-size:20px;font-weight:700;color:var(--accent);margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+h3{font-size:16px;font-weight:600;color:#a78bfa;margin:24px 0 8px;}
+p{color:var(--text);font-size:14px;margin-bottom:12px;}
+/* Code */
+.code{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:20px;margin:16px 0;overflow-x:auto;}
+.code pre{font-family:'Fira Code','Cascadia Code',monospace;font-size:12.5px;line-height:1.6;color:#e2e8f0;white-space:pre;}
+.code .kw{color:#ff7b72;}
+.code .fn{color:#d2a8ff;}
+.code .cm{color:#8b949e;font-style:italic;}
+.code .st{color:#a5d6ff;}
+.code .nm{color:#79c0ff;}
+/* Concept box */
+.concept{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:18px 20px;margin:16px 0;}
+.concept h4{color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.concept p,.concept li{font-size:13px;color:var(--text);}
+.concept ul{padding-left:16px;}
+.concept li{margin-bottom:4px;}
+/* Interview box */
+.itw{background:linear-gradient(135deg,rgba(124,58,237,0.07),rgba(0,212,255,0.04));border:1px solid rgba(124,58,237,0.35);border-radius:10px;padding:20px 24px;margin:24px 0;}
+.itw .itw-title{color:#a78bfa;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+.itw ul{list-style:none;}
+.itw li{padding:5px 0;font-size:13px;color:var(--text);}
+.itw li::before{content:'▶ ';color:#7c3aed;font-size:10px;}
+/* Formula */
+.formula{background:#0d1117;border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:14px 20px;margin:14px 0;font-family:monospace;font-size:14px;color:var(--accent);text-align:center;}
+/* SVG diagram */
+.diagram{margin:24px 0;text-align:center;}
+.diagram svg{max-width:100%;}
+/* Key points */
+.keypoint{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);}
+.keypoint:last-child{border-bottom:none;}
+.kp-icon{font-size:18px;flex-shrink:0;}
+.kp-text{font-size:13px;color:var(--text);}
+.kp-text strong{color:var(--accent);}
+/* Warning */
+.warn{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13px;color:var(--orange);}
+/* Tag pill */
+.pill{display:inline-block;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);color:var(--accent);padding:2px 10px;border-radius:12px;font-size:11px;margin:2px;}
+.pill.g{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.25);color:var(--green);}
+.pill.p{background:rgba(124,58,237,0.1);border-color:rgba(124,58,237,0.25);color:#a78bfa;}
+.pill.o{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--orange);}
+footer{text-align:center;padding:24px;color:var(--muted);font-size:12px;border-top:1px solid var(--border);margin-top:60px;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{background:var(--bg3);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);}
+td{padding:9px 14px;border-bottom:1px solid rgba(30,45,69,0.5);color:var(--text);}
+tr:hover td{background:rgba(0,212,255,0.03);}
+
+
+  /* ============================================================
+     THEME SYSTEM — 12 dark + 12 light
+  ============================================================ */
+
+  /* --- DARK THEMES --- */
+  [data-theme="midnight"] {
+    --bg:#0a0e1a; --bg2:#111827; --bg3:#1a2234;
+    --accent:#00d4ff; --accent2:#7c3aed; --green:#10b981;
+    --orange:#f59e0b; --red:#ef4444; --text:#e2e8f0; --muted:#94a3b8; --border:#1e2d45;
+    --hero-grad: linear-gradient(135deg,#0a0e1a 0%,#0d1b3e 50%,#1a0a2e 100%);
+  }
+  [data-theme="matrix"] {
+    --bg:#000d00; --bg2:#001a00; --bg3:#002600;
+    --accent:#00ff41; --accent2:#00cc33; --green:#00ff41;
+    --orange:#ccff00; --red:#ff0040; --text:#b3ffb3; --muted:#4dbb4d; --border:#003300;
+    --hero-grad: linear-gradient(135deg,#000d00 0%,#001a00 50%,#000d00 100%);
+  }
+  [data-theme="dracula"] {
+    --bg:#282a36; --bg2:#21222c; --bg3:#2d2f3d;
+    --accent:#bd93f9; --accent2:#ff79c6; --green:#50fa7b;
+    --orange:#ffb86c; --red:#ff5555; --text:#f8f8f2; --muted:#6272a4; --border:#44475a;
+    --hero-grad: linear-gradient(135deg,#282a36 0%,#1e1e2e 50%,#3d1f4e 100%);
+  }
+  [data-theme="monokai"] {
+    --bg:#272822; --bg2:#1e1f1c; --bg3:#2d2e2a;
+    --accent:#a6e22e; --accent2:#66d9e8; --green:#a6e22e;
+    --orange:#fd971f; --red:#f92672; --text:#f8f8f2; --muted:#75715e; --border:#3e3d32;
+    --hero-grad: linear-gradient(135deg,#272822 0%,#1e1e18 50%,#1c1c1a 100%);
+  }
+  [data-theme="nord"] {
+    --bg:#2e3440; --bg2:#3b4252; --bg3:#434c5e;
+    --accent:#88c0d0; --accent2:#b48ead; --green:#a3be8c;
+    --orange:#ebcb8b; --red:#bf616a; --text:#eceff4; --muted:#81a1c1; --border:#4c566a;
+    --hero-grad: linear-gradient(135deg,#2e3440 0%,#3b4252 50%,#2e3440 100%);
+  }
+  [data-theme="gruvbox"] {
+    --bg:#282828; --bg2:#32302f; --bg3:#3c3836;
+    --accent:#fabd2f; --accent2:#fe8019; --green:#b8bb26;
+    --orange:#fe8019; --red:#fb4934; --text:#ebdbb2; --muted:#928374; --border:#504945;
+    --hero-grad: linear-gradient(135deg,#282828 0%,#3c3836 50%,#282828 100%);
+  }
+  [data-theme="tokyo"] {
+    --bg:#1a1b2e; --bg2:#16213e; --bg3:#0f3460;
+    --accent:#7aa2f7; --accent2:#bb9af7; --green:#9ece6a;
+    --orange:#ff9e64; --red:#f7768e; --text:#c0caf5; --muted:#565f89; --border:#292e42;
+    --hero-grad: linear-gradient(135deg,#1a1b2e 0%,#16213e 50%,#0d0f1e 100%);
+  }
+  [data-theme="synthwave"] {
+    --bg:#0d0221; --bg2:#140330; --bg3:#1a0540;
+    --accent:#f72585; --accent2:#7209b7; --green:#4cc9f0;
+    --orange:#fb8500; --red:#f72585; --text:#e0aaff; --muted:#7b2d8b; --border:#2d0e5a;
+    --hero-grad: linear-gradient(135deg,#0d0221 0%,#1a0540 40%,#240750 100%);
+  }
+  [data-theme="onedark"] {
+    --bg:#282c34; --bg2:#21252b; --bg3:#2c313c;
+    --accent:#61afef; --accent2:#c678dd; --green:#98c379;
+    --orange:#e5c07b; --red:#e06c75; --text:#abb2bf; --muted:#5c6370; --border:#3e4451;
+    --hero-grad: linear-gradient(135deg,#282c34 0%,#21252b 50%,#282c34 100%);
+  }
+  [data-theme="solarized-dark"] {
+    --bg:#002b36; --bg2:#073642; --bg3:#0d4a57;
+    --accent:#2aa198; --accent2:#6c71c4; --green:#859900;
+    --orange:#cb4b16; --red:#dc322f; --text:#839496; --muted:#586e75; --border:#073642;
+    --hero-grad: linear-gradient(135deg,#002b36 0%,#073642 50%,#002b36 100%);
+  }
+  [data-theme="catppuccin"] {
+    --bg:#1e1e2e; --bg2:#181825; --bg3:#313244;
+    --accent:#cba6f7; --accent2:#f38ba8; --green:#a6e3a1;
+    --orange:#fab387; --red:#f38ba8; --text:#cdd6f4; --muted:#6c7086; --border:#313244;
+    --hero-grad: linear-gradient(135deg,#1e1e2e 0%,#181825 50%,#11111b 100%);
+  }
+  [data-theme="cobalt"] {
+    --bg:#0a1628; --bg2:#122140; --bg3:#1a2e52;
+    --accent:#ffd700; --accent2:#ff8c00; --green:#5af78e;
+    --orange:#ff8c00; --red:#ff5c57; --text:#d6e4f0; --muted:#5b7fa6; --border:#1e3a5f;
+    --hero-grad: linear-gradient(135deg,#0a1628 0%,#122140 50%,#0a1628 100%);
+  }
+
+  /* --- LIGHT THEMES --- */
+  [data-theme="light-clean"] {
+    --bg:#f8fafc; --bg2:#ffffff; --bg3:#f1f5f9;
+    --accent:#0284c7; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#1e293b; --muted:#64748b; --border:#e2e8f0;
+    --hero-grad: linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 50%,#ede9fe 100%);
+  }
+  [data-theme="light-solarized"] {
+    --bg:#fdf6e3; --bg2:#eee8d5; --bg3:#e8e0cc;
+    --accent:#268bd2; --accent2:#6c71c4; --green:#859900;
+    --orange:#cb4b16; --red:#dc322f; --text:#657b83; --muted:#93a1a1; --border:#d3cbb8;
+    --hero-grad: linear-gradient(135deg,#fdf6e3 0%,#eee8d5 50%,#fdf6e3 100%);
+  }
+  [data-theme="light-github"] {
+    --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+    --accent:#0969da; --accent2:#8250df; --green:#1a7f37;
+    --orange:#bc4c00; --red:#cf222e; --text:#1f2328; --muted:#656d76; --border:#d0d7de;
+    --hero-grad: linear-gradient(135deg,#f6f8fa 0%,#eaeef2 50%,#f6f8fa 100%);
+  }
+  [data-theme="light-paper"] {
+    --bg:#fffef7; --bg2:#faf9f0; --bg3:#f0eed8;
+    --accent:#2563eb; --accent2:#7c3aed; --green:#15803d;
+    --orange:#c2410c; --red:#b91c1c; --text:#292524; --muted:#78716c; --border:#e7e5e4;
+    --hero-grad: linear-gradient(135deg,#fffef7 0%,#f0eed8 50%,#fffef7 100%);
+  }
+  [data-theme="light-sepia"] {
+    --bg:#f5f0e8; --bg2:#ede8dc; --bg3:#e0d8c8;
+    --accent:#92400e; --accent2:#7c3aed; --green:#365314;
+    --orange:#92400e; --red:#7f1d1d; --text:#3c2a14; --muted:#78716c; --border:#d6cfc0;
+    --hero-grad: linear-gradient(135deg,#f5f0e8 0%,#ede8dc 50%,#f5f0e8 100%);
+  }
+  [data-theme="light-nord"] {
+    --bg:#eceff4; --bg2:#e5e9f0; --bg3:#d8dee9;
+    --accent:#5e81ac; --accent2:#b48ead; --green:#a3be8c;
+    --orange:#d08770; --red:#bf616a; --text:#2e3440; --muted:#4c566a; --border:#d8dee9;
+    --hero-grad: linear-gradient(135deg,#eceff4 0%,#e5e9f0 50%,#eceff4 100%);
+  }
+  [data-theme="light-gruvbox"] {
+    --bg:#fbf1c7; --bg2:#f2e5bc; --bg3:#ebdbb2;
+    --accent:#076678; --accent2:#8f3f71; --green:#79740e;
+    --orange:#af3a03; --red:#9d0006; --text:#3c3836; --muted:#7c6f64; --border:#d5c4a1;
+    --hero-grad: linear-gradient(135deg,#fbf1c7 0%,#f2e5bc 50%,#fbf1c7 100%);
+  }
+  [data-theme="light-rose"] {
+    --bg:#faf4ed; --bg2:#fffaf3; --bg3:#f2e9e1;
+    --accent:#d7827a; --accent2:#907aa9; --green:#56949f;
+    --orange:#ea9d34; --red:#b4637a; --text:#575279; --muted:#9893a5; --border:#dfd8d8;
+    --hero-grad: linear-gradient(135deg,#faf4ed 0%,#f2e9e1 50%,#faf4ed 100%);
+  }
+  [data-theme="light-mint"] {
+    --bg:#f0fdf4; --bg2:#dcfce7; --bg3:#bbf7d0;
+    --accent:#059669; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#14532d; --muted:#4d7c5f; --border:#bbf7d0;
+    --hero-grad: linear-gradient(135deg,#f0fdf4 0%,#dcfce7 50%,#f0fdf4 100%);
+  }
+  [data-theme="light-lavender"] {
+    --bg:#faf5ff; --bg2:#f3e8ff; --bg3:#e9d5ff;
+    --accent:#7c3aed; --accent2:#0284c7; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#3b0764; --muted:#7c3aed; --border:#e9d5ff;
+    --hero-grad: linear-gradient(135deg,#faf5ff 0%,#f3e8ff 50%,#faf5ff 100%);
+  }
+  [data-theme="light-ocean"] {
+    --bg:#f0f9ff; --bg2:#e0f2fe; --bg3:#bae6fd;
+    --accent:#0369a1; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#0c4a6e; --muted:#0369a1; --border:#bae6fd;
+    --hero-grad: linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 50%,#f0f9ff 100%);
+  }
+  [data-theme="light-catppuccin"] {
+    --bg:#eff1f5; --bg2:#e6e9ef; --bg3:#dce0e8;
+    --accent:#1e66f5; --accent2:#8839ef; --green:#40a02b;
+    --orange:#fe640b; --red:#d20f39; --text:#4c4f69; --muted:#7c7f93; --border:#ccd0da;
+    --hero-grad: linear-gradient(135deg,#eff1f5 0%,#e6e9ef 50%,#eff1f5 100%);
+  }
+
+  /* ============================================================
+     DYNAMIC HERO BG — apply --hero-grad to all themes
+  ============================================================ */
+  .hero { background: var(--hero-grad, linear-gradient(135deg,#0a0e1a,#0d1b3e)); }
+
+  /* Light themes — shared overrides */
+  [data-theme^="light-"] .code,
+  [data-theme="light-clean"] .code,
+  [data-theme="light-solarized"] .code,
+  [data-theme="light-github"] .code,
+  [data-theme="light-paper"] .code,
+  [data-theme="light-sepia"] .code,
+  [data-theme="light-nord"] .code,
+  [data-theme="light-gruvbox"] .code,
+  [data-theme="light-rose"] .code,
+  [data-theme="light-mint"] .code,
+  [data-theme="light-lavender"] .code,
+  [data-theme="light-ocean"] .code,
+  [data-theme="light-catppuccin"] .code {
+    background: var(--bg3);
+    border-color: var(--border);
+  }
+  [data-theme^="light-"] .code pre { color: var(--text); }
+  [data-theme^="light-"] .code .kw { color: var(--red); }
+  [data-theme^="light-"] .code .fn { color: var(--accent2); }
+  [data-theme^="light-"] .code .cm { color: var(--muted); }
+  [data-theme^="light-"] .code .st { color: var(--accent); }
+  [data-theme^="light-"] .code .nm { color: var(--accent); }
+
+  /* ============================================================
+     THEME PICKER UI
+  ============================================================ */
+  .theme-picker-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: rgba(128,128,255,0.08);
+    border: 1px solid rgba(128,128,255,0.25);
+    color: var(--accent);
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all .2s;
+    white-space: nowrap;
+    position: relative;
+  }
+  .theme-picker-btn:hover { opacity: 0.85; }
+
+  .theme-panel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 300px;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 20px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+    flex-direction: column;
+    gap: 0;
+  }
+  .theme-panel.open { display: flex; flex-direction: column; }
+  .theme-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .theme-panel-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+  .theme-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .theme-close:hover { background: var(--bg3); color: var(--text); }
+
+  .theme-section-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 16px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .theme-swatch {
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    position: relative;
+    overflow: hidden;
+  }
+  .theme-swatch:hover { transform: scale(1.03); }
+  .theme-swatch.active { border-color: var(--accent) !important; }
+  .theme-swatch .swatch-name {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .theme-swatch .swatch-dots {
+    display: flex;
+    gap: 4px;
+  }
+  .theme-swatch .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Backdrop */
+  .theme-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 999;
+  }
+  .theme-backdrop.open { display: block; }
+
+</style>
+
+
+<script>
+(function() {
+  
+  const THEMES = [
+    // Dark
+    { id:'midnight',        name:'Midnight',      bg:'#0a0e1a', bg2:'#111827', accent:'#00d4ff', accent2:'#7c3aed', text:'#e2e8f0', dark:true },
+    { id:'matrix',          name:'Matrix',        bg:'#000d00', bg2:'#001a00', accent:'#00ff41', accent2:'#00cc33', text:'#b3ffb3', dark:true },
+    { id:'dracula',         name:'Dracula',       bg:'#282a36', bg2:'#21222c', accent:'#bd93f9', accent2:'#ff79c6', text:'#f8f8f2', dark:true },
+    { id:'monokai',         name:'Monokai',       bg:'#272822', bg2:'#1e1f1c', accent:'#a6e22e', accent2:'#66d9e8', text:'#f8f8f2', dark:true },
+    { id:'nord',            name:'Nord',          bg:'#2e3440', bg2:'#3b4252', accent:'#88c0d0', accent2:'#b48ead', text:'#eceff4', dark:true },
+    { id:'gruvbox',         name:'Gruvbox',       bg:'#282828', bg2:'#32302f', accent:'#fabd2f', accent2:'#fe8019', text:'#ebdbb2', dark:true },
+    { id:'tokyo',           name:'Tokyo Night',   bg:'#1a1b2e', bg2:'#16213e', accent:'#7aa2f7', accent2:'#bb9af7', text:'#c0caf5', dark:true },
+    { id:'synthwave',       name:'Synthwave',     bg:'#0d0221', bg2:'#140330', accent:'#f72585', accent2:'#7209b7', text:'#e0aaff', dark:true },
+    { id:'onedark',         name:'One Dark',      bg:'#282c34', bg2:'#21252b', accent:'#61afef', accent2:'#c678dd', text:'#abb2bf', dark:true },
+    { id:'solarized-dark',  name:'Solarized',     bg:'#002b36', bg2:'#073642', accent:'#2aa198', accent2:'#6c71c4', text:'#839496', dark:true },
+    { id:'catppuccin',      name:'Catppuccin',    bg:'#1e1e2e', bg2:'#181825', accent:'#cba6f7', accent2:'#f38ba8', text:'#cdd6f4', dark:true },
+    { id:'cobalt',          name:'Cobalt',        bg:'#0a1628', bg2:'#122140', accent:'#ffd700', accent2:'#ff8c00', text:'#d6e4f0', dark:true },
+    // Light
+    { id:'light-clean',     name:'Clean',         bg:'#f8fafc', bg2:'#ffffff', accent:'#0284c7', accent2:'#7c3aed', text:'#1e293b', dark:false },
+    { id:'light-github',    name:'GitHub',        bg:'#ffffff', bg2:'#f6f8fa', accent:'#0969da', accent2:'#8250df', text:'#1f2328', dark:false },
+    { id:'light-solarized', name:'Solarized',     bg:'#fdf6e3', bg2:'#eee8d5', accent:'#268bd2', accent2:'#6c71c4', text:'#657b83', dark:false },
+    { id:'light-paper',     name:'Paper',         bg:'#fffef7', bg2:'#faf9f0', accent:'#2563eb', accent2:'#7c3aed', text:'#292524', dark:false },
+    { id:'light-sepia',     name:'Sepia',         bg:'#f5f0e8', bg2:'#ede8dc', accent:'#92400e', accent2:'#7c3aed', text:'#3c2a14', dark:false },
+    { id:'light-nord',      name:'Nord Light',    bg:'#eceff4', bg2:'#e5e9f0', accent:'#5e81ac', accent2:'#b48ead', text:'#2e3440', dark:false },
+    { id:'light-gruvbox',   name:'Gruvbox',       bg:'#fbf1c7', bg2:'#f2e5bc', accent:'#076678', accent2:'#8f3f71', text:'#3c3836', dark:false },
+    { id:'light-rose',      name:'Rosé Pine',     bg:'#faf4ed', bg2:'#fffaf3', accent:'#d7827a', accent2:'#907aa9', text:'#575279', dark:false },
+    { id:'light-mint',      name:'Mint',          bg:'#f0fdf4', bg2:'#dcfce7', accent:'#059669', accent2:'#7c3aed', text:'#14532d', dark:false },
+    { id:'light-lavender',  name:'Lavender',      bg:'#faf5ff', bg2:'#f3e8ff', accent:'#7c3aed', accent2:'#0284c7', text:'#3b0764', dark:false },
+    { id:'light-ocean',     name:'Ocean',         bg:'#f0f9ff', bg2:'#e0f2fe', accent:'#0369a1', accent2:'#7c3aed', text:'#0c4a6e', dark:false },
+    { id:'light-catppuccin',name:'Catppuccin',    bg:'#eff1f5', bg2:'#e6e9ef', accent:'#1e66f5', accent2:'#8839ef', text:'#4c4f69', dark:false },
+  ];
+
+  var saved = localStorage.getItem('pmpp-theme') || 'midnight';
+  document.documentElement.setAttribute('data-theme', saved);
+
+  function applyTheme(id) {
+    document.documentElement.setAttribute('data-theme', id);
+    localStorage.setItem('pmpp-theme', id);
+    // Update active swatch
+    document.querySelectorAll('.theme-swatch').forEach(function(s) {
+      s.classList.toggle('active', s.dataset.theme === id);
+    });
+    // Update button
+    var t = THEMES.find(function(x){ return x.id===id; });
+    var btn = document.getElementById('themePickerBtn');
+    if (btn && t) btn.querySelector('.btn-label').textContent = t.name;
+  }
+
+  function buildPanel() {
+    var panel = document.getElementById('themePanel');
+    if (!panel) return;
+    var dark = THEMES.filter(function(t){ return t.dark; });
+    var light = THEMES.filter(function(t){ return !t.dark; });
+    var current = document.documentElement.getAttribute('data-theme');
+
+    function makeGrid(list) {
+      var g = document.createElement('div');
+      g.className = 'theme-grid';
+      list.forEach(function(t) {
+        var s = document.createElement('div');
+        s.className = 'theme-swatch' + (t.id === current ? ' active' : '');
+        s.dataset.theme = t.id;
+        s.style.background = t.bg2;
+        s.style.borderColor = t.id === current ? t.accent : 'transparent';
+        s.innerHTML =
+          '<div class="swatch-name" style="color:'+t.text+'">'+t.name+'</div>' +
+          '<div class="swatch-dots">' +
+            '<div class="dot" style="background:'+t.accent+'"></div>' +
+            '<div class="dot" style="background:'+t.accent2+'"></div>' +
+            '<div class="dot" style="background:'+t.text+'"></div>' +
+          '</div>';
+        s.addEventListener('click', function() { applyTheme(t.id); });
+        g.appendChild(s);
+      });
+      return g;
+    }
+
+    var dLabel = document.createElement('div');
+    dLabel.className = 'theme-section-label';
+    dLabel.textContent = '🌙 Thèmes Sombres';
+    panel.appendChild(dLabel);
+    panel.appendChild(makeGrid(dark));
+
+    var lLabel = document.createElement('div');
+    lLabel.className = 'theme-section-label';
+    lLabel.textContent = '☀️ Thèmes Clairs';
+    panel.appendChild(lLabel);
+    panel.appendChild(makeGrid(light));
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('themePickerBtn');
+    var panel = document.getElementById('themePanel');
+    var backdrop = document.getElementById('themeBackdrop');
+
+    buildPanel();
+
+    // Set button label
+    var t = THEMES.find(function(x){ return x.id === (localStorage.getItem('pmpp-theme')||'midnight'); });
+    if (btn && t) btn.querySelector('.btn-label').textContent = t.name;
+
+    function openPanel() {
+      panel.classList.add('open');
+      backdrop.classList.add('open');
+    }
+    function closePanel() {
+      panel.classList.remove('open');
+      backdrop.classList.remove('open');
+    }
+
+    if (btn) btn.addEventListener('click', function(e){ e.stopPropagation(); openPanel(); });
+    if (backdrop) backdrop.addEventListener('click', closePanel);
+    var closeBtn = document.getElementById('themeCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  });
+})();
+</script>
+
+</head>
+<body>
+<nav>
+  <a href="index.html" class="home">🏠 PMPP</a>
+  <a href="ch01.html">Ch.1</a><a href="ch02.html">Ch.2</a><a href="ch03.html">Ch.3</a><a href="ch04.html">Ch.4</a><a href="ch05.html">Ch.5</a><a href="ch06.html"class=active>Ch.6</a><a href="ch07.html">Ch.7</a><a href="ch08.html">Ch.8</a><a href="ch09.html">Ch.9</a><a href="ch10.html">Ch.10</a><a href="ch11.html">Ch.11</a><a href="ch12.html">Ch.12</a><a href="ch13.html">Ch.13</a><a href="ch14.html">Ch.14</a><a href="ch15.html">Ch.15</a><a href="ch16.html">Ch.16</a><a href="ch17.html">Ch.17</a><a href="ch18.html">Ch.18</a><a href="ch19.html">Ch.19</a><a href="ch20.html">Ch.20</a><a href="ch21.html">Ch.21</a><a href="ch22.html">Ch.22</a><a href="ch23.html">Ch.23</a>
+<button class="theme-picker-btn" id="themePickerBtn">🎨 <span class="btn-label">Midnight</span></button>
+</nav>
+<div class="hero">
+  <div class="part-badge">Partie II — Performance GPU</div>
+  <h1>Ch.6 — Performance Considerations</h1>
+  <div class="pager"><a href="ch05.html">← Ch.5</a><a href="ch07.html">Ch.7 →</a></div>
+</div>
+<div class="container">
+
+<h2>6.0 Vue d'ensemble — Pourquoi la performance est-elle si délicate ?</h2>
+<p>Un kernel CUDA peut être correctement écrit et pourtant atteindre moins de 10% du débit théorique d'un GPU. Les goulots d'étranglement viennent de trois sources principales : <strong>l'accès mémoire sous-optimal</strong> (coalescing, latence DRAM), <strong>la contention de banques SRAM</strong> (bank conflicts), et <strong>le manque d'occupancy ou d'ILP</strong>. Ce chapitre démonte chaque mécanisme avec des chiffres réels sur A100.</p>
+
+<div class="concept">
+<h4>Hiérarchie mémoire GPU — rappel quantifié (A100 SXM4)</h4>
+<p>Registres : ~255 par thread, 0 latence. Shared memory : 164 KB/SM, ~5 cycles. L1/Tex : ~32 KB, ~30 cycles. L2 : 40 MB, ~200 cycles. HBM2e (global) : 80 GB, ~600-800 cycles, 2000 GB/s.</p>
+</div>
+
+<h2>6.1 Memory Coalescing — Mécanique Complète</h2>
+
+<p>Le contrôleur mémoire d'un GPU moderne opère en <strong>transactions de 32 ou 128 bytes</strong>. Quand un warp émet 32 load/store de 4 bytes, le hardware regarde si les adresses appartiennent à la même ligne de cache (128 B). Si oui → 1 transaction. Si non → jusqu'à 32 transactions distinctes.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg">
+  <!-- CAS 1 : COALESCED -->
+  <text x="10" y="18" fill="#00d4ff" font-family="monospace" font-size="12" font-weight="bold">CAS 1 — COALESCED (1 transaction)</text>
+  <!-- Thread labels -->
+  <g fill="#94a3b8" font-family="monospace" font-size="10">
+    <text x="10" y="40">T0</text><text x="40" y="40">T1</text><text x="70" y="40">T2</text>
+    <text x="100" y="40">T3</text><text x="220" y="40">...</text><text x="310" y="40">T31</text>
+  </g>
+  <!-- Arrows down -->
+  <g stroke="#00d4ff" stroke-width="1.5" fill="none">
+    <line x1="16" y1="44" x2="16" y2="68"/><line x1="46" y1="44" x2="46" y2="68"/>
+    <line x1="76" y1="44" x2="76" y2="68"/><line x1="106" y1="44" x2="106" y2="68"/>
+    <line x1="316" y1="44" x2="316" y2="68"/>
+  </g>
+  <!-- Memory row coalesced -->
+  <rect x="8" y="70" width="320" height="24" rx="4" fill="rgba(0,212,255,0.15)" stroke="#00d4ff" stroke-width="1.5"/>
+  <text x="130" y="86" fill="#00d4ff" font-family="monospace" font-size="10">DRAM LINE [addr .. addr+127]</text>
+  <text x="340" y="86" fill="#10b981" font-family="monospace" font-size="12" font-weight="bold">→ 1 transaction, 128B</text>
+
+  <!-- CAS 2 : NON-COALESCED -->
+  <text x="10" y="130" fill="#f59e0b" font-family="monospace" font-size="12" font-weight="bold">CAS 2 — NON-COALESCED (stride=2, 32 transactions)</text>
+  <g fill="#94a3b8" font-family="monospace" font-size="10">
+    <text x="10" y="150">T0</text><text x="50" y="150">T1</text><text x="90" y="150">T2</text>
+    <text x="250" y="150">...</text>
+  </g>
+  <g stroke="#f59e0b" stroke-width="1.5" fill="none" stroke-dasharray="3,2">
+    <line x1="16" y1="154" x2="16" y2="178"/><line x1="56" y1="154" x2="96" y2="178"/>
+    <line x1="96" y1="154" x2="176" y2="178"/>
+  </g>
+  <rect x="8" y="180" width="60" height="24" rx="3" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="1"/>
+  <rect x="88" y="180" width="60" height="24" rx="3" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="1"/>
+  <rect x="168" y="180" width="60" height="24" rx="3" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="1"/>
+  <text x="8" y="196" fill="#f59e0b" font-family="monospace" font-size="9">L0</text>
+  <text x="88" y="196" fill="#f59e0b" font-family="monospace" font-size="9">L2</text>
+  <text x="168" y="196" fill="#f59e0b" font-family="monospace" font-size="9">L4</text>
+  <text x="380" y="196" fill="#ef4444" font-family="monospace" font-size="12" font-weight="bold">→ 32 transactions !</text>
+</svg>
+</div>
+
+<h3>6.1.1 Coalescing en pratique : Row-Major vs Column-Major</h3>
+<p>La règle fondamentale : <strong>thread i doit accéder à l'élément i</strong> (ou i*stride avec stride=1). La confusion classique vient des matrices 2D.</p>
+
+<div class="code"><pre><span class="cm">// ✅ COALESCED — thread (row,col) accède à A[row][col]
+// En mémoire linéaire : A[row*N + col]
+// Thread blockDim.x=32, threadIdx.x varie → col consécutif</span>
+<span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">matTranspose_good</span>(<span class="kw">float</span>* A, <span class="kw">float</span>* B, <span class="kw">int</span> N) {
+    <span class="kw">int</span> col = blockIdx.x * blockDim.x + threadIdx.x;  <span class="cm">// varie rapidement</span>
+    <span class="kw">int</span> row = blockIdx.y * blockDim.y + threadIdx.y;  <span class="cm">// varie lentement</span>
+    <span class="kw">if</span> (row < N && col < N)
+        B[col * N + row] = A[row * N + col];  <span class="cm">// lecture coalesced ✅</span>
+    <span class="cm">// (écriture non-coalesced → résolu avec shared memory, voir ch.5)</span>
+}
+
+<span class="cm">// ❌ NON-COALESCED — stride = N entre threads consécutifs</span>
+<span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">columnAccess_bad</span>(<span class="kw">float</span>* A, <span class="kw">int</span> N) {
+    <span class="kw">int</span> row = blockIdx.x * blockDim.x + threadIdx.x;
+    <span class="cm">// Thread 0 : A[0], Thread 1 : A[N], Thread 2 : A[2N] → stride N !</span>
+    <span class="kw">float</span> val = A[row * N + 0];  <span class="cm">// accès colonne → 32 transactions/warp</span>
+}</pre></div>
+
+<div class="warn">⚠️ Règle : dans un kernel 2D, <code>threadIdx.x</code> doit indexer la dimension la plus rapide (colonne en C/CUDA row-major). Si threadIdx.x indexe les lignes, chaque warp génère N transactions au lieu de 1.</div>
+
+<h3>6.1.2 Stride Patterns et Impact sur le Débit</h3>
+<table>
+<tr><th>Stride (éléments de 4B)</th><th>Transactions/warp</th><th>Débit effectif</th><th>Exemple</th></tr>
+<tr><td>1 (consécutif)</td><td>1</td><td>100%</td><td>A[threadIdx.x]</td></tr>
+<tr><td>2</td><td>2</td><td>50%</td><td>A[2*threadIdx.x]</td></tr>
+<tr><td>32</td><td>32</td><td>3.1%</td><td>A[32*threadIdx.x]</td></tr>
+<tr><td>N (colonne, N=4096)</td><td>32</td><td>~3%</td><td>colonne de matrice</td></tr>
+<tr><td>Aléatoire</td><td>32</td><td>~3%</td><td>hash tables</td></tr>
+</table>
+
+<h3>6.1.3 Coalescing avec des types larges</h3>
+<div class="code"><pre><span class="cm">// float4 : charge 4 floats en 1 instruction → meilleur ILP et débit</span>
+<span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">saxpy_float4</span>(<span class="kw">float</span>* x, <span class="kw">float</span>* y, <span class="kw">float</span> a, <span class="kw">int</span> n) {
+    <span class="kw">int</span> i = (blockIdx.x * blockDim.x + threadIdx.x) * 4;
+    <span class="kw">if</span> (i + 3 < n) {
+        float4 xi = *(<span class="kw">float4</span>*)(x + i);  <span class="cm">// 128-bit load coalesced</span>
+        float4 yi = *(<span class="kw">float4</span>*)(y + i);
+        yi.x = a*xi.x + yi.x;  yi.y = a*xi.y + yi.y;
+        yi.z = a*xi.z + yi.z;  yi.w = a*xi.w + yi.w;
+        *(<span class="kw">float4</span>*)(y + i) = yi;
+    }
+}
+<span class="cm">// Impact : réduit le nombre d'instructions d'adressage de 4x
+//          la bande passante reste identique mais le pipeline est mieux utilisé</span></pre></div>
+
+<h2>6.2 Shared Memory Bank Conflicts — Anatomie Complète</h2>
+
+<p>La shared memory est organisée en <strong>32 banques</strong> (sur GPU >=Fermi), chacune de 4 bytes de large. L'adresse byte <code>addr</code> appartient à la banque <code>(addr/4) % 32</code>. Si plusieurs threads d'un warp accèdent à la <strong>même banque</strong> (mais des adresses différentes), les accès sont <strong>sérialisés</strong>.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Banks 0..7 -->
+  <text x="10" y="16" fill="#00d4ff" font-family="monospace" font-size="11" font-weight="bold">SHARED MEMORY — 32 banques (seules les 8 premières montrées)</text>
+  <g font-family="monospace" font-size="9" fill="#94a3b8">
+    <text x="10" y="30">Bank:</text>
+    <text x="55" y="30">0</text><text x="85" y="30">1</text><text x="115" y="30">2</text>
+    <text x="145" y="30">3</text><text x="175" y="30">4</text><text x="205" y="30">5</text>
+    <text x="235" y="30">6</text><text x="265" y="30">7</text>
+    <text x="310" y="30">...</text>
+  </g>
+  <!-- bank boxes -->
+  <g fill="rgba(0,212,255,0.1)" stroke="#00d4ff" stroke-width="1">
+    <rect x="48" y="36" width="28" height="80" rx="3"/>
+    <rect x="78" y="36" width="28" height="80" rx="3"/>
+    <rect x="108" y="36" width="28" height="80" rx="3"/>
+    <rect x="138" y="36" width="28" height="80" rx="3"/>
+    <rect x="168" y="36" width="28" height="80" rx="3"/>
+    <rect x="198" y="36" width="28" height="80" rx="3"/>
+    <rect x="228" y="36" width="28" height="80" rx="3"/>
+    <rect x="258" y="36" width="28" height="80" rx="3"/>
+  </g>
+  <!-- row labels -->
+  <g font-family="monospace" font-size="8" fill="#64748b">
+    <text x="8" y="52">row 0</text><text x="8" y="72">row 1</text>
+    <text x="8" y="92">row 2</text><text x="8" y="112">row 3</text>
+  </g>
+  <!-- good: T0->B0, T1->B1, T2->B2... -->
+  <text x="360" y="20" fill="#10b981" font-family="monospace" font-size="10" font-weight="bold">✅ Stride-1 (no conflict)</text>
+  <g stroke="#10b981" stroke-width="1.5" fill="none">
+    <line x1="360" y1="28" x2="62" y2="36"/>
+    <line x1="380" y1="28" x2="92" y2="36"/>
+    <line x1="400" y1="28" x2="122" y2="36"/>
+  </g>
+  <!-- bad: all T access bank 0 -->
+  <text x="360" y="130" fill="#ef4444" font-family="monospace" font-size="10" font-weight="bold">❌ Stride-32 (32-way conflict)</text>
+  <g stroke="#ef4444" stroke-width="1.5" fill="none" stroke-dasharray="4,2">
+    <line x1="360" y1="138" x2="62" y2="100"/>
+    <line x1="390" y1="138" x2="62" y2="110"/>
+    <line x1="420" y1="138" x2="62" y2="120"/>
+  </g>
+  <text x="360" y="160" fill="#94a3b8" font-family="monospace" font-size="9">T0,T1,T2... tous dans banque 0 → sérialisé 32x</text>
+  <!-- Labels threads -->
+  <g fill="#7c3aed" font-family="monospace" font-size="8">
+    <text x="356" y="26">T0</text><text x="376" y="26">T1</text><text x="396" y="26">T2</text>
+  </g>
+</svg>
+</div>
+
+<h3>6.2.1 Patterns de Conflits — Exemples Concrets</h3>
+<div class="code"><pre><span class="cm">// Shared mem : float smem[32][32];  → chaque ligne = 32 floats = 32 banques
+// Accès par threadIdx.x :</span>
+
+<span class="cm">// ✅ Stride 1 — aucun conflit
+// T0→smem[0][0] (bank 0), T1→smem[0][1] (bank 1), ..., T31→smem[0][31] (bank 31)</span>
+<span class="kw">float</span> a = smem[threadIdx.y][threadIdx.x];  <span class="cm">// ✅ parfait</span>
+
+<span class="cm">// ❌ Stride 2 — 2-way conflict
+// T0→bank 0, T1→bank 2, T2→bank 4, ..., T16→bank 0 ← CONFLIT avec T0 !</span>
+<span class="kw">float</span> b = smem[threadIdx.x][threadIdx.x * 2 % 32];  <span class="cm">// ❌ 2-way</span>
+
+<span class="cm">// ❌ Stride 32 — 32-way conflict (LE pire cas)
+// Tous les threads accèdent à la banque 0 (rows différentes mais bank identique)</span>
+<span class="kw">float</span> c = smem[threadIdx.x][0];  <span class="cm">// ❌ 32-way conflict : banque 0 pour tous</span>
+
+<span class="cm">// ✅ Transposition via padding — résout le conflit classique
+// Ajout d'une colonne fantôme : float smem[32][33]
+// smem[i][j] → bank (i*33 + j) % 32 → tous différents !</span>
+<span class="kw">__shared__</span> <span class="kw">float</span> tile[32][33];  <span class="cm">// +1 colonne de padding ← LA solution</span>
+tile[threadIdx.y][threadIdx.x] = d_in[...];
+__syncthreads();
+<span class="kw">float</span> val = tile[threadIdx.x][threadIdx.y];  <span class="cm">// ✅ accès transposé sans conflit</span></pre></div>
+
+<h3>6.2.2 Pourquoi le Padding Fonctionne</h3>
+<div class="concept">
+<h4>Calcul du numéro de banque</h4>
+<p>Banque(smem[i][j]) = (i * COLS + j) % 32. Avec COLS=32 : smem[0][0]=bank 0, smem[1][0]=bank 0 aussi (car 32%32=0). → Conflit sur colonne 0.</p>
+<p>Avec COLS=33 : smem[0][0]=bank 0, smem[1][0]=bank 33%32=<strong>bank 1</strong> → pas de conflit ! Le padding décale chaque ligne d'une banque.</p>
+</div>
+
+<h3>6.2.3 Detect bank conflicts avec Nsight</h3>
+<div class="code"><pre><span class="cm"># Profiling CLI — cherche shared_load_transactions_per_request
+# Une valeur > 1 indique un bank conflict de ce factor</span>
+$ ncu --metrics l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum       ./my_kernel
+<span class="cm"># Output exemple :
+# l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum : 1024
+# → 1024 conflits sur les loads shared → optimiser avec padding</span></pre></div>
+
+<h2>6.3 Occupancy — Maximiser l'Utilisation des SMs</h2>
+
+<p>L'<strong>occupancy</strong> = warps actifs / warps max théoriques par SM. Sur A100 : 64 warps max par SM. L'occupancy permet de masquer la latence mémoire en gardant d'autres warps prêts à s'exécuter pendant qu'un warp attend des données.</p>
+
+<div class="formula">Occupancy = min(warps_register_limit, warps_smem_limit, warps_block_limit) / max_warps_per_SM</div>
+
+<h3>6.3.1 Limites et Trade-offs</h3>
+<table>
+<tr><th>Ressource</th><th>Limite A100</th><th>Impact sur Occupancy</th></tr>
+<tr><td>Registres/thread</td><td>255 max</td><td>+32 regs/thread → occupancy/2 si >64 regs</td></tr>
+<tr><td>Shared memory/block</td><td>164 KB/SM</td><td>+32KB smem/block → max 5 blocks/SM</td></tr>
+<tr><td>Threads/block</td><td>1024 max</td><td>1024 threads = 32 warps</td></tr>
+<tr><td>Blocks/SM</td><td>32 max</td><td>Petits blocks → plus de blocks/SM</td></tr>
+</table>
+
+<div class="code"><pre><span class="cm">// Requête d'occupancy à la compilation (CUDA ≥ 6.5)</span>
+<span class="kw">int</span> minGridSize, blockSize;
+cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
+                                    myKernel, 0, 0);
+printf(<span class="st">"Optimal blockSize: %d, minGridSize: %d
+"</span>, blockSize, minGridSize);
+
+<span class="cm">// Ou avec l'attribut launch_bounds pour guider le compilateur :</span>
+<span class="kw">__global__</span> <span class="kw">__launch_bounds__</span>(256, 4)  <span class="cm">// max 256 threads, min 4 blocks/SM</span>
+<span class="kw">void</span> <span class="fn">myKernel</span>(...) { ... }
+<span class="cm">// Le compilateur alloue moins de registres pour respecter la contrainte</span></pre></div>
+
+<h3>6.3.2 Cas Pratique : GEMM 16x16 tiles</h3>
+<div class="concept">
+<h4>Exemple A100 — kernel GEMM avec smem</h4>
+<p>Block 16×16 = 256 threads = 8 warps. Smem par block = 2 × 16×16 × 4 bytes = 2 KB. SM peut héberger 164K/2K = 82 blocks théoriques, limité à 32 blocks max → 32×8 = 256 warps → occupancy = 256/64 = 400%? Non, 64 warps max → 64/64 = 100%.</p>
+<p>Mais si chaque thread utilise 128 registres : 256 threads × 128 regs = 32768 regs. A100 a 65536 regs/SM → 2 blocks max → 2×8=16 warps → 25% occupancy.</p>
+</div>
+
+<h2>6.4 Thread Coarsening — Quand et Comment</h2>
+
+<p>Le <strong>thread coarsening</strong> attribue plusieurs éléments de sortie à un seul thread. On augmente l'arithmetic intensity et on amortit le coût du démarrage (prologue/épilogue de warp), au prix d'une réduction du parallélisme.</p>
+
+<div class="code"><pre><span class="cm">// AVANT : 1 thread → 1 élément
+__global__ void kernel_v1(float* A, float* B, float* C, int N) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    C[i] = A[i] + B[i];  // 1 FLOP, 8 bytes lus → AI = 0.125 FLOP/byte
+}</span>
+
+<span class="cm">// APRÈS : 1 thread → 4 éléments (COARSENING_FACTOR = 4)</span>
+<span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">kernel_v2</span>(<span class="kw">float</span>* A, <span class="kw">float</span>* B, <span class="kw">float</span>* C, <span class="kw">int</span> N) {
+    <span class="kw">int</span> base = (blockIdx.x * blockDim.x + threadIdx.x) * 4;
+    <span class="cm">// Registres : ai[4], bi[4] — réutilisés, moins d'overhead</span>
+    <span class="kw">float</span> a0=A[base], a1=A[base+1], a2=A[base+2], a3=A[base+3];
+    <span class="kw">float</span> b0=B[base], b1=B[base+1], b2=B[base+2], b3=B[base+3];
+    C[base]=a0+b0; C[base+1]=a1+b1; C[base+2]=a2+b2; C[base+3]=a3+b3;
+    <span class="cm">// 4 FLOP, 32 bytes lus → AI = 0.125 FLOP/byte (identique ici !)</span>
+    <span class="cm">// Bénéfice : moins de blocs lancés → moins d'overhead scheduler</span>
+}</pre></div>
+
+<div class="warn">⚠️ Le coarsening aide principalement quand : (1) le kernel est limité par l'overhead de lancement, (2) l'AI augmente réellement (ex: convolution avec poids partagés), (3) le GPU est déjà quasi-saturé en warps (occupancy &gt; 50%). Il peut <em>réduire</em> les performances si le GPU manque de travail (trop peu de blocs actifs).</div>
+
+<h2>6.5 Le Roofline Model — Guide Complet</h2>
+
+<p>Le <strong>Roofline model</strong> prédit la performance maximale atteignable d'un kernel en fonction de son <em>arithmetic intensity</em> (AI). Il prend en compte deux plafonds : la bande passante mémoire et le débit de calcul.</p>
+
+<div class="formula">Performance [GFLOP/s] = min(Peak_FLOPS, Memory_BW × AI)</div>
+
+<div class="diagram">
+<svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg">
+  <!-- Axes -->
+  <line x1="60" y1="240" x2="660" y2="240" stroke="#64748b" stroke-width="1.5"/>
+  <line x1="60" y1="240" x2="60" y2="20" stroke="#64748b" stroke-width="1.5"/>
+  <!-- Axis labels -->
+  <text x="340" y="268" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="middle">Arithmetic Intensity (FLOP/byte)</text>
+  <text x="16" y="130" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="middle" transform="rotate(-90,16,130)">Perf (GFLOP/s)</text>
+  <!-- Grid lines -->
+  <g stroke="#1e2d45" stroke-width="0.5" stroke-dasharray="4,4">
+    <line x1="60" y1="60" x2="660" y2="60"/>
+    <line x1="60" y1="120" x2="660" y2="120"/>
+    <line x1="60" y1="180" x2="660" y2="180"/>
+  </g>
+  <!-- Y axis ticks -->
+  <g fill="#64748b" font-family="monospace" font-size="9">
+    <text x="50" y="63" text-anchor="end">19500</text>
+    <text x="50" y="123" text-anchor="end">9750</text>
+    <text x="50" y="183" text-anchor="end">4000</text>
+    <text x="50" y="243" text-anchor="end">0</text>
+  </g>
+  <!-- X axis ticks: 1, 2, 5, 12.5, 30, 100 -->
+  <g fill="#64748b" font-family="monospace" font-size="9">
+    <text x="120" y="253" text-anchor="middle">1</text>
+    <text x="180" y="253" text-anchor="middle">2</text>
+    <text x="270" y="253" text-anchor="middle">5</text>
+    <text x="360" y="253" text-anchor="middle">12.5</text>
+    <text x="480" y="253" text-anchor="middle">30</text>
+    <text x="620" y="253" text-anchor="middle">100</text>
+  </g>
+  <!-- Memory bound slope (BW=2000 GB/s) -->
+  <line x1="60" y1="240" x2="360" y2="60" stroke="#00d4ff" stroke-width="2.5"/>
+  <!-- Compute bound ceiling -->
+  <line x1="360" y1="60" x2="660" y2="60" stroke="#00d4ff" stroke-width="2.5"/>
+  <!-- Ridge point marker -->
+  <circle cx="360" cy="60" r="5" fill="#f59e0b"/>
+  <text x="368" y="52" fill="#f59e0b" font-family="monospace" font-size="10" font-weight="bold">Ridge ≈ 12.5</text>
+  <!-- Kernel examples -->
+  <!-- SAXPY: AI~0.25, ~500 GFLOP/s -->
+  <circle cx="105" cy="229" r="5" fill="#ef4444"/>
+  <text x="108" y="220" fill="#ef4444" font-family="monospace" font-size="9">SAXPY AI=0.25</text>
+  <!-- Naive GEMM: AI~1, ~2000 GFLOP/s -->
+  <circle cx="120" cy="214" r="5" fill="#f59e0b"/>
+  <text x="123" y="210" fill="#f59e0b" font-family="monospace" font-size="9">GEMM naïf AI=1</text>
+  <!-- Tiled GEMM: AI~128, compute-bound -->
+  <circle cx="580" cy="62" r="5" fill="#10b981"/>
+  <text x="540" y="78" fill="#10b981" font-family="monospace" font-size="9">GEMM tuilé AI=128</text>
+  <!-- labels -->
+  <text x="150" y="168" fill="#94a3b8" font-family="monospace" font-size="10" transform="rotate(-38,150,168)">Slope = BW = 2 TB/s</text>
+  <text x="450" y="50" fill="#00d4ff" font-family="monospace" font-size="10">Compute Bound = 19500 GFLOPS (A100 TF32)</text>
+</svg>
+</div>
+
+<h3>6.5.1 Chiffres Réels — GPU Modernes</h3>
+<table>
+<tr><th>GPU</th><th>Peak TFLOPS (FP32)</th><th>BW (GB/s)</th><th>Ridge Point (FLOP/byte)</th></tr>
+<tr><td>A100 SXM4</td><td>19.5</td><td>2000</td><td>9.75</td></tr>
+<tr><td>H100 SXM5</td><td>60</td><td>3350</td><td>17.9</td></tr>
+<tr><td>RTX 4090</td><td>82.6</td><td>1008</td><td>81.9</td></tr>
+<tr><td>MI300X (AMD)</td><td>122.6</td><td>5300</td><td>23.1</td></tr>
+<tr><td>Intel Ponte Vecchio</td><td>45</td><td>3276</td><td>13.7</td></tr>
+</table>
+
+<h3>6.5.2 Calculer l'AI d'un Kernel</h3>
+<div class="code"><pre><span class="cm">// Exemple : GEMM M×N×K naïf (sans cache)
+// FLOPS = 2 × M × N × K  (multiply-add pour chaque élément de C)
+// Bytes = (M×K + K×N + M×N) × sizeof(float)
+// Pour M=N=K=1024 :
+//   FLOPS = 2 × 1024³ = 2.1 × 10⁹
+//   Bytes = 3 × 1024² × 4 = 12.6 × 10⁶ bytes
+//   AI_naif = 2.1G / 12.6M ≈ 166 FLOP/byte  ← compute-bound?
+//
+// MAIS le naïf relit A et B K fois depuis DRAM (pas de cache L2 parfait) :
+//   Bytes_réels ≈ K × (M × 4 + N × 4) = 1024 × 8K bytes = 8 GB
+//   AI_réel ≈ 2.1G / 8G ≈ 0.26 FLOP/byte ← memory-bound !
+//
+// Avec tiling (tile=32) : chaque tile lue 1 fois en smem, K/32 times :
+//   Bytes_réels ≈ (M×K/32 + K×N/32) × 4 = M×N × 4/8 ≈ 0.5 GB (simplifié)
+//   AI_tiled ≈ 2.1G / 0.5G ≈ 4× → compute-bound sur A100 (ridge=9.75)</span></pre></div>
+
+<h2>6.6 Prefetching et Pipelining Mémoire</h2>
+<p>Les GPUs utilisent le <strong>multithreading massif</strong> pour cacher la latence mémoire : pendant qu'un warp attend des données (300-700 cycles), le scheduler exécute d'autres warps. Mais quand l'occupancy est faible, cette stratégie échoue. Le <strong>prefetching logiciel</strong> peut aider.</p>
+
+<div class="code"><pre><span class="cm">// Double-buffering : pipeline calcul et chargement avec 2 tiles
+// Pendant qu'on compute sur tile A, on charge tile B dans le background</span>
+<span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">gemm_pipelined</span>(...) {
+    <span class="kw">__shared__</span> <span class="kw">float</span> tileA[2][TILE][TILE];  <span class="cm">// double buffer</span>
+    <span class="kw">__shared__</span> <span class="kw">float</span> tileB[2][TILE][TILE];
+    <span class="kw">int</span> cur = 0, nxt = 1;
+
+    <span class="cm">// Préchargement du premier tile</span>
+    <span class="fn">loadTile</span>(tileA[cur], A, 0);
+    <span class="fn">loadTile</span>(tileB[cur], B, 0);
+    <span class="fn">__syncthreads</span>();
+
+    <span class="kw">for</span> (<span class="kw">int</span> k = 0; k < K/TILE; k++) {
+        <span class="kw">if</span> (k + 1 < K/TILE) {
+            <span class="fn">loadTile</span>(tileA[nxt], A, k+1);  <span class="cm">// load prochaine tile</span>
+            <span class="fn">loadTile</span>(tileB[nxt], B, k+1);  <span class="cm">// pendant le calcul</span>
+        }
+        <span class="fn">computeTile</span>(tileA[cur], tileB[cur], C);  <span class="cm">// compute tile courante</span>
+        <span class="fn">__syncthreads</span>();
+        cur ^= 1; nxt ^= 1;  <span class="cm">// swap buffers</span>
+    }
+}</pre></div>
+
+<div class="itw">
+<div class="itw-title">🎯 Questions d'Entretien NVIDIA/AMD/Intel — Ch.6</div>
+<ul>
+<li>« Expliquez précisément pourquoi un accès stride-2 génère 2 transactions mémoire par warp. » → 32 threads × stride 2 × 4B = 256B couvrant 2 lignes de 128B → 2 transactions.</li>
+<li>« Comment résoudre un bank conflict dans une transposition de matrice ? » → Padding +1 colonne : float smem[32][33] décale chaque ligne d'une banque.</li>
+<li>« Qu'est-ce que le ridge point du Roofline model ? » → AI à laquelle BW×AI = Peak FLOPS. Kernels en dessous : memory-bound. Au-dessus : compute-bound.</li>
+<li>« Donnez l'AI d'un GEMM naïf vs tuilé. » → Naïf ~0.25 FLOP/byte (relecture depuis DRAM), tuilé ~AI=tile_size/2 FLOP/byte. Tile=32 → AI≈16, compute-bound sur A100.</li>
+<li>« Quand le thread coarsening nuit-il ? » → Quand le nombre de blocs/SM devient inférieur à 2-4 (latency hiding insuffisant), l'occupancy chute et la latence DRAM n'est plus cachée.</li>
+<li>« Comment mesurez-vous le débit mémoire effectif d'un kernel ? » → ncu --metrics l1tex__t_bytes_pipe_lsu_mem_global_op_ld.sum donne les bytes transférés. Débit = bytes / temps kernel.</li>
+</ul>
+</div>
+
+</div>
+<footer>Programming Massively Parallel Processors, 4th Ed. — Guide ITW Nvidia/AMD/Intel</footer>
+
+<div class="theme-backdrop" id="themeBackdrop"></div>
+<div class="theme-panel" id="themePanel">
+  <div class="theme-panel-header">
+    <h3>🎨 Choisir un thème</h3>
+    <button class="theme-close" id="themeCloseBtn">✕</button>
+  </div>
+</div>
+
+</body>
+</html>

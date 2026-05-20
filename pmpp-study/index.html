@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMPP — Programming Massively Parallel Processors</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1a2234;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #1e2d45;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.6; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #0a0e1a 0%, #0d1b3e 50%, #1a0a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 40px 50px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content:'';
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(0,212,255,0.08) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .hero-badge {
+    display:inline-block;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, #a855f7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+  .hero h2 {
+    font-size: clamp(14px, 2vw, 20px);
+    color: var(--muted);
+    font-weight: 400;
+    margin-bottom: 28px;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .stat { text-align:center; }
+  .stat .val { font-size:28px; font-weight:700; color:var(--accent); }
+  .stat .lbl { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+
+  /* GPU SVG */
+  .gpu-diagram { margin: 30px auto 0; max-width: 700px; }
+
+  /* NAV */
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    overflow-x: auto;
+    font-size: 13px;
+  }
+  nav a { color: var(--muted); text-decoration:none; padding:14px 4px; white-space:nowrap; border-bottom: 2px solid transparent; transition:.2s; }
+  nav a:hover { color:var(--accent); border-bottom-color:var(--accent); }
+
+  /* MAIN */
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px; }
+
+  /* PART SECTIONS */
+  .part-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 48px 0 16px;
+    padding: 8px 0 8px 16px;
+    border-left: 3px solid var(--accent);
+  }
+  .chapter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .chapter-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .chapter-card::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity:0;
+    transition:.2s;
+  }
+  .chapter-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,212,255,0.1); }
+  .chapter-card:hover::before { opacity:1; }
+  .ch-num { font-size:11px; color:var(--accent); font-weight:600; letter-spacing:1px; margin-bottom:6px; }
+  .ch-title { font-size:15px; font-weight:700; margin-bottom:8px; }
+  .ch-desc { font-size:12px; color:var(--muted); line-height:1.5; }
+  .ch-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:12px; }
+  .tag {
+    font-size:10px; padding:2px 8px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius:10px;
+    color:var(--accent);
+  }
+  .tag.purple { background: rgba(124,58,237,0.08); border-color:rgba(124,58,237,0.2); color:#a78bfa; }
+  .tag.green { background: rgba(16,185,129,0.08); border-color:rgba(16,185,129,0.2); color:var(--green); }
+  .tag.orange { background: rgba(245,158,11,0.08); border-color:rgba(245,158,11,0.2); color:var(--orange); }
+
+  /* INTERVIEW TIPS BOX */
+  .itw-box {
+    background: linear-gradient(135deg, rgba(124,58,237,0.05), rgba(0,212,255,0.05));
+    border: 1px solid rgba(124,58,237,0.3);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 40px 0;
+  }
+  .itw-box h3 { color:#a78bfa; font-size:14px; letter-spacing:1px; text-transform:uppercase; margin-bottom:12px; }
+  .itw-box ul { list-style:none; }
+  .itw-box li { padding: 6px 0; font-size:14px; color:var(--text); }
+  .itw-box li::before { content:'→ '; color:#a78bfa; }
+
+  /* FOOTER */
+  footer {
+    text-align:center;
+    padding: 32px;
+    color:var(--muted);
+    font-size:12px;
+    border-top: 1px solid var(--border);
+    margin-top:60px;
+  }
+
+
+  /* ============================================================
+     THEME SYSTEM — 12 dark + 12 light
+  ============================================================ */
+
+  /* --- DARK THEMES --- */
+  [data-theme="midnight"] {
+    --bg:#0a0e1a; --bg2:#111827; --bg3:#1a2234;
+    --accent:#00d4ff; --accent2:#7c3aed; --green:#10b981;
+    --orange:#f59e0b; --red:#ef4444; --text:#e2e8f0; --muted:#94a3b8; --border:#1e2d45;
+    --hero-grad: linear-gradient(135deg,#0a0e1a 0%,#0d1b3e 50%,#1a0a2e 100%);
+  }
+  [data-theme="matrix"] {
+    --bg:#000d00; --bg2:#001a00; --bg3:#002600;
+    --accent:#00ff41; --accent2:#00cc33; --green:#00ff41;
+    --orange:#ccff00; --red:#ff0040; --text:#b3ffb3; --muted:#4dbb4d; --border:#003300;
+    --hero-grad: linear-gradient(135deg,#000d00 0%,#001a00 50%,#000d00 100%);
+  }
+  [data-theme="dracula"] {
+    --bg:#282a36; --bg2:#21222c; --bg3:#2d2f3d;
+    --accent:#bd93f9; --accent2:#ff79c6; --green:#50fa7b;
+    --orange:#ffb86c; --red:#ff5555; --text:#f8f8f2; --muted:#6272a4; --border:#44475a;
+    --hero-grad: linear-gradient(135deg,#282a36 0%,#1e1e2e 50%,#3d1f4e 100%);
+  }
+  [data-theme="monokai"] {
+    --bg:#272822; --bg2:#1e1f1c; --bg3:#2d2e2a;
+    --accent:#a6e22e; --accent2:#66d9e8; --green:#a6e22e;
+    --orange:#fd971f; --red:#f92672; --text:#f8f8f2; --muted:#75715e; --border:#3e3d32;
+    --hero-grad: linear-gradient(135deg,#272822 0%,#1e1e18 50%,#1c1c1a 100%);
+  }
+  [data-theme="nord"] {
+    --bg:#2e3440; --bg2:#3b4252; --bg3:#434c5e;
+    --accent:#88c0d0; --accent2:#b48ead; --green:#a3be8c;
+    --orange:#ebcb8b; --red:#bf616a; --text:#eceff4; --muted:#81a1c1; --border:#4c566a;
+    --hero-grad: linear-gradient(135deg,#2e3440 0%,#3b4252 50%,#2e3440 100%);
+  }
+  [data-theme="gruvbox"] {
+    --bg:#282828; --bg2:#32302f; --bg3:#3c3836;
+    --accent:#fabd2f; --accent2:#fe8019; --green:#b8bb26;
+    --orange:#fe8019; --red:#fb4934; --text:#ebdbb2; --muted:#928374; --border:#504945;
+    --hero-grad: linear-gradient(135deg,#282828 0%,#3c3836 50%,#282828 100%);
+  }
+  [data-theme="tokyo"] {
+    --bg:#1a1b2e; --bg2:#16213e; --bg3:#0f3460;
+    --accent:#7aa2f7; --accent2:#bb9af7; --green:#9ece6a;
+    --orange:#ff9e64; --red:#f7768e; --text:#c0caf5; --muted:#565f89; --border:#292e42;
+    --hero-grad: linear-gradient(135deg,#1a1b2e 0%,#16213e 50%,#0d0f1e 100%);
+  }
+  [data-theme="synthwave"] {
+    --bg:#0d0221; --bg2:#140330; --bg3:#1a0540;
+    --accent:#f72585; --accent2:#7209b7; --green:#4cc9f0;
+    --orange:#fb8500; --red:#f72585; --text:#e0aaff; --muted:#7b2d8b; --border:#2d0e5a;
+    --hero-grad: linear-gradient(135deg,#0d0221 0%,#1a0540 40%,#240750 100%);
+  }
+  [data-theme="onedark"] {
+    --bg:#282c34; --bg2:#21252b; --bg3:#2c313c;
+    --accent:#61afef; --accent2:#c678dd; --green:#98c379;
+    --orange:#e5c07b; --red:#e06c75; --text:#abb2bf; --muted:#5c6370; --border:#3e4451;
+    --hero-grad: linear-gradient(135deg,#282c34 0%,#21252b 50%,#282c34 100%);
+  }
+  [data-theme="solarized-dark"] {
+    --bg:#002b36; --bg2:#073642; --bg3:#0d4a57;
+    --accent:#2aa198; --accent2:#6c71c4; --green:#859900;
+    --orange:#cb4b16; --red:#dc322f; --text:#839496; --muted:#586e75; --border:#073642;
+    --hero-grad: linear-gradient(135deg,#002b36 0%,#073642 50%,#002b36 100%);
+  }
+  [data-theme="catppuccin"] {
+    --bg:#1e1e2e; --bg2:#181825; --bg3:#313244;
+    --accent:#cba6f7; --accent2:#f38ba8; --green:#a6e3a1;
+    --orange:#fab387; --red:#f38ba8; --text:#cdd6f4; --muted:#6c7086; --border:#313244;
+    --hero-grad: linear-gradient(135deg,#1e1e2e 0%,#181825 50%,#11111b 100%);
+  }
+  [data-theme="cobalt"] {
+    --bg:#0a1628; --bg2:#122140; --bg3:#1a2e52;
+    --accent:#ffd700; --accent2:#ff8c00; --green:#5af78e;
+    --orange:#ff8c00; --red:#ff5c57; --text:#d6e4f0; --muted:#5b7fa6; --border:#1e3a5f;
+    --hero-grad: linear-gradient(135deg,#0a1628 0%,#122140 50%,#0a1628 100%);
+  }
+
+  /* --- LIGHT THEMES --- */
+  [data-theme="light-clean"] {
+    --bg:#f8fafc; --bg2:#ffffff; --bg3:#f1f5f9;
+    --accent:#0284c7; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#1e293b; --muted:#64748b; --border:#e2e8f0;
+    --hero-grad: linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 50%,#ede9fe 100%);
+  }
+  [data-theme="light-solarized"] {
+    --bg:#fdf6e3; --bg2:#eee8d5; --bg3:#e8e0cc;
+    --accent:#268bd2; --accent2:#6c71c4; --green:#859900;
+    --orange:#cb4b16; --red:#dc322f; --text:#657b83; --muted:#93a1a1; --border:#d3cbb8;
+    --hero-grad: linear-gradient(135deg,#fdf6e3 0%,#eee8d5 50%,#fdf6e3 100%);
+  }
+  [data-theme="light-github"] {
+    --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+    --accent:#0969da; --accent2:#8250df; --green:#1a7f37;
+    --orange:#bc4c00; --red:#cf222e; --text:#1f2328; --muted:#656d76; --border:#d0d7de;
+    --hero-grad: linear-gradient(135deg,#f6f8fa 0%,#eaeef2 50%,#f6f8fa 100%);
+  }
+  [data-theme="light-paper"] {
+    --bg:#fffef7; --bg2:#faf9f0; --bg3:#f0eed8;
+    --accent:#2563eb; --accent2:#7c3aed; --green:#15803d;
+    --orange:#c2410c; --red:#b91c1c; --text:#292524; --muted:#78716c; --border:#e7e5e4;
+    --hero-grad: linear-gradient(135deg,#fffef7 0%,#f0eed8 50%,#fffef7 100%);
+  }
+  [data-theme="light-sepia"] {
+    --bg:#f5f0e8; --bg2:#ede8dc; --bg3:#e0d8c8;
+    --accent:#92400e; --accent2:#7c3aed; --green:#365314;
+    --orange:#92400e; --red:#7f1d1d; --text:#3c2a14; --muted:#78716c; --border:#d6cfc0;
+    --hero-grad: linear-gradient(135deg,#f5f0e8 0%,#ede8dc 50%,#f5f0e8 100%);
+  }
+  [data-theme="light-nord"] {
+    --bg:#eceff4; --bg2:#e5e9f0; --bg3:#d8dee9;
+    --accent:#5e81ac; --accent2:#b48ead; --green:#a3be8c;
+    --orange:#d08770; --red:#bf616a; --text:#2e3440; --muted:#4c566a; --border:#d8dee9;
+    --hero-grad: linear-gradient(135deg,#eceff4 0%,#e5e9f0 50%,#eceff4 100%);
+  }
+  [data-theme="light-gruvbox"] {
+    --bg:#fbf1c7; --bg2:#f2e5bc; --bg3:#ebdbb2;
+    --accent:#076678; --accent2:#8f3f71; --green:#79740e;
+    --orange:#af3a03; --red:#9d0006; --text:#3c3836; --muted:#7c6f64; --border:#d5c4a1;
+    --hero-grad: linear-gradient(135deg,#fbf1c7 0%,#f2e5bc 50%,#fbf1c7 100%);
+  }
+  [data-theme="light-rose"] {
+    --bg:#faf4ed; --bg2:#fffaf3; --bg3:#f2e9e1;
+    --accent:#d7827a; --accent2:#907aa9; --green:#56949f;
+    --orange:#ea9d34; --red:#b4637a; --text:#575279; --muted:#9893a5; --border:#dfd8d8;
+    --hero-grad: linear-gradient(135deg,#faf4ed 0%,#f2e9e1 50%,#faf4ed 100%);
+  }
+  [data-theme="light-mint"] {
+    --bg:#f0fdf4; --bg2:#dcfce7; --bg3:#bbf7d0;
+    --accent:#059669; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#14532d; --muted:#4d7c5f; --border:#bbf7d0;
+    --hero-grad: linear-gradient(135deg,#f0fdf4 0%,#dcfce7 50%,#f0fdf4 100%);
+  }
+  [data-theme="light-lavender"] {
+    --bg:#faf5ff; --bg2:#f3e8ff; --bg3:#e9d5ff;
+    --accent:#7c3aed; --accent2:#0284c7; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#3b0764; --muted:#7c3aed; --border:#e9d5ff;
+    --hero-grad: linear-gradient(135deg,#faf5ff 0%,#f3e8ff 50%,#faf5ff 100%);
+  }
+  [data-theme="light-ocean"] {
+    --bg:#f0f9ff; --bg2:#e0f2fe; --bg3:#bae6fd;
+    --accent:#0369a1; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#0c4a6e; --muted:#0369a1; --border:#bae6fd;
+    --hero-grad: linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 50%,#f0f9ff 100%);
+  }
+  [data-theme="light-catppuccin"] {
+    --bg:#eff1f5; --bg2:#e6e9ef; --bg3:#dce0e8;
+    --accent:#1e66f5; --accent2:#8839ef; --green:#40a02b;
+    --orange:#fe640b; --red:#d20f39; --text:#4c4f69; --muted:#7c7f93; --border:#ccd0da;
+    --hero-grad: linear-gradient(135deg,#eff1f5 0%,#e6e9ef 50%,#eff1f5 100%);
+  }
+
+  /* ============================================================
+     DYNAMIC HERO BG — apply --hero-grad to all themes
+  ============================================================ */
+  .hero { background: var(--hero-grad, linear-gradient(135deg,#0a0e1a,#0d1b3e)); }
+
+  /* Light themes — shared overrides */
+  [data-theme^="light-"] .code,
+  [data-theme="light-clean"] .code,
+  [data-theme="light-solarized"] .code,
+  [data-theme="light-github"] .code,
+  [data-theme="light-paper"] .code,
+  [data-theme="light-sepia"] .code,
+  [data-theme="light-nord"] .code,
+  [data-theme="light-gruvbox"] .code,
+  [data-theme="light-rose"] .code,
+  [data-theme="light-mint"] .code,
+  [data-theme="light-lavender"] .code,
+  [data-theme="light-ocean"] .code,
+  [data-theme="light-catppuccin"] .code {
+    background: var(--bg3);
+    border-color: var(--border);
+  }
+  [data-theme^="light-"] .code pre { color: var(--text); }
+  [data-theme^="light-"] .code .kw { color: var(--red); }
+  [data-theme^="light-"] .code .fn { color: var(--accent2); }
+  [data-theme^="light-"] .code .cm { color: var(--muted); }
+  [data-theme^="light-"] .code .st { color: var(--accent); }
+  [data-theme^="light-"] .code .nm { color: var(--accent); }
+
+  /* ============================================================
+     THEME PICKER UI
+  ============================================================ */
+  .theme-picker-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: rgba(128,128,255,0.08);
+    border: 1px solid rgba(128,128,255,0.25);
+    color: var(--accent);
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all .2s;
+    white-space: nowrap;
+    position: relative;
+  }
+  .theme-picker-btn:hover { opacity: 0.85; }
+
+  .theme-panel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 300px;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 20px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+    flex-direction: column;
+    gap: 0;
+  }
+  .theme-panel.open { display: flex; flex-direction: column; }
+  .theme-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .theme-panel-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+  .theme-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .theme-close:hover { background: var(--bg3); color: var(--text); }
+
+  .theme-section-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 16px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .theme-swatch {
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    position: relative;
+    overflow: hidden;
+  }
+  .theme-swatch:hover { transform: scale(1.03); }
+  .theme-swatch.active { border-color: var(--accent) !important; }
+  .theme-swatch .swatch-name {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .theme-swatch .swatch-dots {
+    display: flex;
+    gap: 4px;
+  }
+  .theme-swatch .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Backdrop */
+  .theme-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 999;
+  }
+  .theme-backdrop.open { display: block; }
+
+</style>
+
+
+<script>
+(function() {
+  
+  const THEMES = [
+    // Dark
+    { id:'midnight',        name:'Midnight',      bg:'#0a0e1a', bg2:'#111827', accent:'#00d4ff', accent2:'#7c3aed', text:'#e2e8f0', dark:true },
+    { id:'matrix',          name:'Matrix',        bg:'#000d00', bg2:'#001a00', accent:'#00ff41', accent2:'#00cc33', text:'#b3ffb3', dark:true },
+    { id:'dracula',         name:'Dracula',       bg:'#282a36', bg2:'#21222c', accent:'#bd93f9', accent2:'#ff79c6', text:'#f8f8f2', dark:true },
+    { id:'monokai',         name:'Monokai',       bg:'#272822', bg2:'#1e1f1c', accent:'#a6e22e', accent2:'#66d9e8', text:'#f8f8f2', dark:true },
+    { id:'nord',            name:'Nord',          bg:'#2e3440', bg2:'#3b4252', accent:'#88c0d0', accent2:'#b48ead', text:'#eceff4', dark:true },
+    { id:'gruvbox',         name:'Gruvbox',       bg:'#282828', bg2:'#32302f', accent:'#fabd2f', accent2:'#fe8019', text:'#ebdbb2', dark:true },
+    { id:'tokyo',           name:'Tokyo Night',   bg:'#1a1b2e', bg2:'#16213e', accent:'#7aa2f7', accent2:'#bb9af7', text:'#c0caf5', dark:true },
+    { id:'synthwave',       name:'Synthwave',     bg:'#0d0221', bg2:'#140330', accent:'#f72585', accent2:'#7209b7', text:'#e0aaff', dark:true },
+    { id:'onedark',         name:'One Dark',      bg:'#282c34', bg2:'#21252b', accent:'#61afef', accent2:'#c678dd', text:'#abb2bf', dark:true },
+    { id:'solarized-dark',  name:'Solarized',     bg:'#002b36', bg2:'#073642', accent:'#2aa198', accent2:'#6c71c4', text:'#839496', dark:true },
+    { id:'catppuccin',      name:'Catppuccin',    bg:'#1e1e2e', bg2:'#181825', accent:'#cba6f7', accent2:'#f38ba8', text:'#cdd6f4', dark:true },
+    { id:'cobalt',          name:'Cobalt',        bg:'#0a1628', bg2:'#122140', accent:'#ffd700', accent2:'#ff8c00', text:'#d6e4f0', dark:true },
+    // Light
+    { id:'light-clean',     name:'Clean',         bg:'#f8fafc', bg2:'#ffffff', accent:'#0284c7', accent2:'#7c3aed', text:'#1e293b', dark:false },
+    { id:'light-github',    name:'GitHub',        bg:'#ffffff', bg2:'#f6f8fa', accent:'#0969da', accent2:'#8250df', text:'#1f2328', dark:false },
+    { id:'light-solarized', name:'Solarized',     bg:'#fdf6e3', bg2:'#eee8d5', accent:'#268bd2', accent2:'#6c71c4', text:'#657b83', dark:false },
+    { id:'light-paper',     name:'Paper',         bg:'#fffef7', bg2:'#faf9f0', accent:'#2563eb', accent2:'#7c3aed', text:'#292524', dark:false },
+    { id:'light-sepia',     name:'Sepia',         bg:'#f5f0e8', bg2:'#ede8dc', accent:'#92400e', accent2:'#7c3aed', text:'#3c2a14', dark:false },
+    { id:'light-nord',      name:'Nord Light',    bg:'#eceff4', bg2:'#e5e9f0', accent:'#5e81ac', accent2:'#b48ead', text:'#2e3440', dark:false },
+    { id:'light-gruvbox',   name:'Gruvbox',       bg:'#fbf1c7', bg2:'#f2e5bc', accent:'#076678', accent2:'#8f3f71', text:'#3c3836', dark:false },
+    { id:'light-rose',      name:'Rosé Pine',     bg:'#faf4ed', bg2:'#fffaf3', accent:'#d7827a', accent2:'#907aa9', text:'#575279', dark:false },
+    { id:'light-mint',      name:'Mint',          bg:'#f0fdf4', bg2:'#dcfce7', accent:'#059669', accent2:'#7c3aed', text:'#14532d', dark:false },
+    { id:'light-lavender',  name:'Lavender',      bg:'#faf5ff', bg2:'#f3e8ff', accent:'#7c3aed', accent2:'#0284c7', text:'#3b0764', dark:false },
+    { id:'light-ocean',     name:'Ocean',         bg:'#f0f9ff', bg2:'#e0f2fe', accent:'#0369a1', accent2:'#7c3aed', text:'#0c4a6e', dark:false },
+    { id:'light-catppuccin',name:'Catppuccin',    bg:'#eff1f5', bg2:'#e6e9ef', accent:'#1e66f5', accent2:'#8839ef', text:'#4c4f69', dark:false },
+  ];
+
+  var saved = localStorage.getItem('pmpp-theme') || 'midnight';
+  document.documentElement.setAttribute('data-theme', saved);
+
+  function applyTheme(id) {
+    document.documentElement.setAttribute('data-theme', id);
+    localStorage.setItem('pmpp-theme', id);
+    // Update active swatch
+    document.querySelectorAll('.theme-swatch').forEach(function(s) {
+      s.classList.toggle('active', s.dataset.theme === id);
+    });
+    // Update button
+    var t = THEMES.find(function(x){ return x.id===id; });
+    var btn = document.getElementById('themePickerBtn');
+    if (btn && t) btn.querySelector('.btn-label').textContent = t.name;
+  }
+
+  function buildPanel() {
+    var panel = document.getElementById('themePanel');
+    if (!panel) return;
+    var dark = THEMES.filter(function(t){ return t.dark; });
+    var light = THEMES.filter(function(t){ return !t.dark; });
+    var current = document.documentElement.getAttribute('data-theme');
+
+    function makeGrid(list) {
+      var g = document.createElement('div');
+      g.className = 'theme-grid';
+      list.forEach(function(t) {
+        var s = document.createElement('div');
+        s.className = 'theme-swatch' + (t.id === current ? ' active' : '');
+        s.dataset.theme = t.id;
+        s.style.background = t.bg2;
+        s.style.borderColor = t.id === current ? t.accent : 'transparent';
+        s.innerHTML =
+          '<div class="swatch-name" style="color:'+t.text+'">'+t.name+'</div>' +
+          '<div class="swatch-dots">' +
+            '<div class="dot" style="background:'+t.accent+'"></div>' +
+            '<div class="dot" style="background:'+t.accent2+'"></div>' +
+            '<div class="dot" style="background:'+t.text+'"></div>' +
+          '</div>';
+        s.addEventListener('click', function() { applyTheme(t.id); });
+        g.appendChild(s);
+      });
+      return g;
+    }
+
+    var dLabel = document.createElement('div');
+    dLabel.className = 'theme-section-label';
+    dLabel.textContent = '🌙 Thèmes Sombres';
+    panel.appendChild(dLabel);
+    panel.appendChild(makeGrid(dark));
+
+    var lLabel = document.createElement('div');
+    lLabel.className = 'theme-section-label';
+    lLabel.textContent = '☀️ Thèmes Clairs';
+    panel.appendChild(lLabel);
+    panel.appendChild(makeGrid(light));
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('themePickerBtn');
+    var panel = document.getElementById('themePanel');
+    var backdrop = document.getElementById('themeBackdrop');
+
+    buildPanel();
+
+    // Set button label
+    var t = THEMES.find(function(x){ return x.id === (localStorage.getItem('pmpp-theme')||'midnight'); });
+    if (btn && t) btn.querySelector('.btn-label').textContent = t.name;
+
+    function openPanel() {
+      panel.classList.add('open');
+      backdrop.classList.add('open');
+    }
+    function closePanel() {
+      panel.classList.remove('open');
+      backdrop.classList.remove('open');
+    }
+
+    if (btn) btn.addEventListener('click', function(e){ e.stopPropagation(); openPanel(); });
+    if (backdrop) backdrop.addEventListener('click', closePanel);
+    var closeBtn = document.getElementById('themeCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  });
+})();
+</script>
+
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-badge">🎯 Interview Prep Guide</div>
+  <h1>Programming Massively<br>Parallel Processors</h1>
+  <h2>Hwu · Kirk · El Hajj — 4ème édition · Guide complet pour vos entretiens Nvidia / AMD / Intel</h2>
+  <div class="hero-stats">
+    <div class="stat"><div class="val">23</div><div class="lbl">Chapitres</div></div>
+    <div class="stat"><div class="val">4</div><div class="lbl">Parties</div></div>
+    <div class="stat"><div class="val">555</div><div class="lbl">Pages</div></div>
+    <div class="stat"><div class="val">∞</div><div class="lbl">GPU Threads</div></div>
+  </div>
+
+  <!-- GPU Architecture Diagram -->
+  <div class="gpu-diagram">
+    <svg viewBox="0 0 700 160" xmlns="http://www.w3.org/2000/svg">
+      <!-- SM blocks -->
+      <defs>
+        <linearGradient id="smGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.1"/>
+        </linearGradient>
+      </defs>
+      <text x="350" y="18" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="monospace">GPU — Streaming Multiprocessors (SMs)</text>
+      <!-- SM 0 -->
+      <g transform="translate(20,28)">
+        <rect width="100" height="120" rx="6" fill="url(#smGrad)" stroke="#00d4ff" stroke-width="1" stroke-opacity="0.4"/>
+        <text x="50" y="16" text-anchor="middle" fill="#00d4ff" font-size="10" font-family="monospace">SM 0</text>
+        <rect x="8" y="24" width="38" height="22" rx="3" fill="rgba(0,212,255,0.15)" stroke="#00d4ff" stroke-width="0.5" stroke-opacity="0.5"/>
+        <text x="27" y="38" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">WARP 0</text>
+        <rect x="54" y="24" width="38" height="22" rx="3" fill="rgba(0,212,255,0.15)" stroke="#00d4ff" stroke-width="0.5" stroke-opacity="0.5"/>
+        <text x="73" y="38" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">WARP 1</text>
+        <rect x="8" y="52" width="84" height="16" rx="3" fill="rgba(124,58,237,0.2)" stroke="#7c3aed" stroke-width="0.5"/>
+        <text x="50" y="63" text-anchor="middle" fill="#a78bfa" font-size="8" font-family="monospace">Shared Mem (L1)</text>
+        <rect x="8" y="74" width="84" height="14" rx="3" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="0.5"/>
+        <text x="50" y="84" text-anchor="middle" fill="#10b981" font-size="8" font-family="monospace">Registers</text>
+        <rect x="8" y="94" width="84" height="14" rx="3" fill="rgba(245,158,11,0.1)" stroke="#f59e0b" stroke-width="0.5"/>
+        <text x="50" y="104" text-anchor="middle" fill="#f59e0b" font-size="8" font-family="monospace">Const Cache</text>
+      </g>
+      <!-- SM 1..5 (simplified) -->
+      <g transform="translate(130,28)"><rect width="100" height="120" rx="6" fill="url(#smGrad)" stroke="#00d4ff" stroke-width="1" stroke-opacity="0.4"/><text x="50" y="16" text-anchor="middle" fill="#00d4ff" font-size="10" font-family="monospace">SM 1</text><text x="50" y="70" text-anchor="middle" fill="#475569" font-size="20">···</text></g>
+      <g transform="translate(240,28)"><rect width="100" height="120" rx="6" fill="url(#smGrad)" stroke="#00d4ff" stroke-width="1" stroke-opacity="0.4"/><text x="50" y="16" text-anchor="middle" fill="#00d4ff" font-size="10" font-family="monospace">SM 2</text><text x="50" y="70" text-anchor="middle" fill="#475569" font-size="20">···</text></g>
+      <g transform="translate(350,28)"><rect width="100" height="120" rx="6" fill="url(#smGrad)" stroke="#00d4ff" stroke-width="1" stroke-opacity="0.4"/><text x="50" y="16" text-anchor="middle" fill="#00d4ff" font-size="10" font-family="monospace">SM N-2</text><text x="50" y="70" text-anchor="middle" fill="#475569" font-size="20">···</text></g>
+      <text x="320" y="92" text-anchor="middle" fill="#334155" font-size="24">· · ·</text>
+      <g transform="translate(460,28)"><rect width="100" height="120" rx="6" fill="url(#smGrad)" stroke="#00d4ff" stroke-width="1" stroke-opacity="0.4"/><text x="50" y="16" text-anchor="middle" fill="#00d4ff" font-size="10" font-family="monospace">SM N-1</text><text x="50" y="70" text-anchor="middle" fill="#475569" font-size="20">···</text></g>
+      <!-- L2 + DRAM -->
+      <rect x="20" y="154" width="540" height="2" rx="1" fill="rgba(0,212,255,0.3)"/>
+      <text x="290" y="148" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">← L2 Cache (shared across all SMs) — Global Memory (DRAM) →</text>
+    </svg>
+  </div>
+</div>
+
+<nav>
+  <a href="index.html">🏠 Accueil</a>
+  <a href="ch01.html">Ch.1</a><a href="ch02.html">Ch.2</a><a href="ch03.html">Ch.3</a>
+  <a href="ch04.html">Ch.4</a><a href="ch05.html">Ch.5</a><a href="ch06.html">Ch.6</a>
+  <a href="ch07.html">Ch.7</a><a href="ch08.html">Ch.8</a><a href="ch09.html">Ch.9</a>
+  <a href="ch10.html">Ch.10</a><a href="ch11.html">Ch.11</a><a href="ch12.html">Ch.12</a>
+  <a href="ch13.html">Ch.13</a><a href="ch14.html">Ch.14</a><a href="ch15.html">Ch.15</a>
+  <a href="ch16.html">Ch.16</a><a href="ch17.html">Ch.17</a><a href="ch18.html">Ch.18</a>
+  <a href="ch19.html">Ch.19</a><a href="ch20.html">Ch.20</a><a href="ch21.html">Ch.21</a>
+  <a href="ch22.html">Ch.22</a><a href="ch23.html">Ch.23</a>
+<button class="theme-picker-btn" id="themePickerBtn">🎨 <span class="btn-label">Midnight</span></button>
+</nav>
+
+<div class="container">
+
+  <div class="itw-box">
+    <h3>🎯 Stratégie d'entretien Nvidia / AMD / Intel</h3>
+    <ul>
+      <li><strong>Nvidia :</strong> Focus sur CUDA, warp divergence, occupancy, Tensor Cores, cuDNN/cuBLAS pipeline</li>
+      <li><strong>AMD :</strong> ROCm/HIP, wavefronts (= warps), LDS (= shared mem), architecture CDNA/RDNA</li>
+      <li><strong>Intel :</strong> oneAPI/SYCL, EU (Execution Units), subgroups, XMX pour AI, Xe HPG vs HPC</li>
+      <li>Connaître <strong>Amdahl's Law</strong>, <strong>Roofline Model</strong>, <strong>memory coalescing</strong> par cœur</li>
+      <li>Savoir expliquer le trade-off <strong>occupancy vs. register pressure</strong> et quand chaque stratégie gagne</li>
+    </ul>
+  </div>
+
+  <!-- PART I -->
+  <div class="part-label">Partie I — Concepts Fondamentaux</div>
+  <div class="chapter-grid">
+    <a href="ch01.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 01</div>
+      <div class="ch-title">Introduction</div>
+      <div class="ch-desc">GPU vs CPU, computing hétérogène, loi d'Amdahl, pourquoi le parallélisme massif</div>
+      <div class="ch-tags"><span class="tag">Amdahl's Law</span><span class="tag green">Fondamental</span></div>
+    </a>
+    <a href="ch02.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 02</div>
+      <div class="ch-title">Heterogeneous Data Parallel Computing</div>
+      <div class="ch-desc">Structure d'un programme CUDA, kernels, grilles, blocs, transferts mémoire host↔device</div>
+      <div class="ch-tags"><span class="tag">CUDA basics</span><span class="tag green">Must Know</span></div>
+    </a>
+    <a href="ch03.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 03</div>
+      <div class="ch-title">Multidimensional Grids and Data</div>
+      <div class="ch-desc">dim3, grilles 2D/3D, indexation des threads, row-major vs column-major</div>
+      <div class="ch-tags"><span class="tag">Thread indexing</span><span class="tag">dim3</span></div>
+    </a>
+    <a href="ch04.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 04</div>
+      <div class="ch-title">Compute Architecture &amp; Scheduling</div>
+      <div class="ch-desc">SMs, warps, SIMD, scheduling de latence, occupancy, resource partitioning</div>
+      <div class="ch-tags"><span class="tag">Warps</span><span class="tag orange">Hot Topic</span></div>
+    </a>
+    <a href="ch05.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 05</div>
+      <div class="ch-title">Memory Architecture &amp; Data Locality</div>
+      <div class="ch-desc">Global, shared, constant, local, registers — tiling pour réduire le trafic mémoire</div>
+      <div class="ch-tags"><span class="tag">Tiling</span><span class="tag orange">Hot Topic</span></div>
+    </a>
+    <a href="ch06.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 06</div>
+      <div class="ch-title">Performance Considerations</div>
+      <div class="ch-desc">Memory coalescing, shared memory bank conflicts, thread coarsening, Roofline model</div>
+      <div class="ch-tags"><span class="tag">Coalescing</span><span class="tag orange">Hot Topic</span></div>
+    </a>
+  </div>
+
+  <!-- PART II -->
+  <div class="part-label">Partie II — Patterns Parallèles</div>
+  <div class="chapter-grid">
+    <a href="ch07.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 07</div>
+      <div class="ch-title">Convolution</div>
+      <div class="ch-desc">Convolution 2D tuilée, constant memory pour les filtres, gestion des halo cells</div>
+      <div class="ch-tags"><span class="tag">Tiled conv</span><span class="tag green">Deep Learning</span></div>
+    </a>
+    <a href="ch08.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 08</div>
+      <div class="ch-title">Stencil</div>
+      <div class="ch-desc">Stencils 3D, register tiling, thread coarsening, différences avec la convolution</div>
+      <div class="ch-tags"><span class="tag">3D Stencil</span><span class="tag purple">HPC</span></div>
+    </a>
+    <a href="ch09.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 09</div>
+      <div class="ch-title">Parallel Histogram</div>
+      <div class="ch-desc">Atomic operations, privatisation, agrégation, latence vs débit des atomics</div>
+      <div class="ch-tags"><span class="tag">Atomics</span><span class="tag">Privatization</span></div>
+    </a>
+    <a href="ch10.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 10</div>
+      <div class="ch-title">Reduction &amp; Minimizing Divergence</div>
+      <div class="ch-desc">Réduction parallèle, minimisation du warp divergence, efficacité des ressources</div>
+      <div class="ch-tags"><span class="tag">Reduction</span><span class="tag orange">Divergence</span></div>
+    </a>
+    <a href="ch11.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 11</div>
+      <div class="ch-title">Prefix Sum (Scan)</div>
+      <div class="ch-desc">Kogge-Stone, Brent-Kung, work efficiency, scan segmenté, single-pass scan</div>
+      <div class="ch-tags"><span class="tag">Kogge-Stone</span><span class="tag purple">Work Efficiency</span></div>
+    </a>
+    <a href="ch12.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 12</div>
+      <div class="ch-title">Merge</div>
+      <div class="ch-desc">Co-rank function, merge tuilé, circular buffer, identification dynamique des données</div>
+      <div class="ch-tags"><span class="tag">Co-rank</span><span class="tag">Tiled merge</span></div>
+    </a>
+  </div>
+
+  <!-- PART III -->
+  <div class="part-label">Partie III — Patterns Avancés &amp; Applications</div>
+  <div class="chapter-grid">
+    <a href="ch13.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 13</div>
+      <div class="ch-title">Sorting</div>
+      <div class="ch-desc">Radix sort parallèle, coalescing, merge sort parallèle, choix de la valeur du radix</div>
+      <div class="ch-tags"><span class="tag">Radix Sort</span><span class="tag green">Classic</span></div>
+    </a>
+    <a href="ch14.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 14</div>
+      <div class="ch-title">Sparse Matrix Computation</div>
+      <div class="ch-desc">Formats COO, CSR, ELL, JDS, SpMV, hybrid ELL-COO pour les matrices irrégulières</div>
+      <div class="ch-tags"><span class="tag">SpMV</span><span class="tag purple">HPC/AI</span></div>
+    </a>
+    <a href="ch15.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 15</div>
+      <div class="ch-title">Graph Traversal</div>
+      <div class="ch-desc">BFS parallèle, vertex-centric vs edge-centric, frontières, formulation linéaire-algébrique</div>
+      <div class="ch-tags"><span class="tag">BFS</span><span class="tag">GraphBLAS</span></div>
+    </a>
+    <a href="ch16.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 16</div>
+      <div class="ch-title">Deep Learning</div>
+      <div class="ch-desc">CNNs, forward/backward pass CUDA, GEMM pour conv layers, cuDNN library</div>
+      <div class="ch-tags"><span class="tag green">Deep Learning</span><span class="tag orange">Hot Topic</span></div>
+    </a>
+    <a href="ch17.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 17</div>
+      <div class="ch-title">Iterative MRI Reconstruction</div>
+      <div class="ch-desc">Constant memory, chunking k-space, optimisation FHD, cas réel scientifique</div>
+      <div class="ch-tags"><span class="tag">Const Memory</span><span class="tag purple">Scientific</span></div>
+    </a>
+    <a href="ch18.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 18</div>
+      <div class="ch-title">Electrostatic Potential Map</div>
+      <div class="ch-desc">Scatter vs gather, thread coarsening, cutoff binning, scalabilité sur données massives</div>
+      <div class="ch-tags"><span class="tag">Gather/Scatter</span><span class="tag">Binning</span></div>
+    </a>
+    <a href="ch19.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 19</div>
+      <div class="ch-title">Parallel Programming &amp; Computational Thinking</div>
+      <div class="ch-desc">Décomposition output-centric vs input-centric, sélection d'algorithmes, design thinking</div>
+      <div class="ch-tags"><span class="tag">Decomposition</span><span class="tag green">Design</span></div>
+    </a>
+  </div>
+
+  <!-- PART IV -->
+  <div class="part-label">Partie IV — Pratiques Avancées</div>
+  <div class="chapter-grid">
+    <a href="ch20.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 20</div>
+      <div class="ch-title">Heterogeneous Computing Cluster</div>
+      <div class="ch-desc">MPI + CUDA, CUDA streams, overlap computation/communication, collective MPI</div>
+      <div class="ch-tags"><span class="tag">MPI+CUDA</span><span class="tag purple">HPC Cluster</span></div>
+    </a>
+    <a href="ch21.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 21</div>
+      <div class="ch-title">CUDA Dynamic Parallelism</div>
+      <div class="ch-desc">Kernels parent/enfant, Bezier curves, quadtrees récursifs, considérations importantes</div>
+      <div class="ch-tags"><span class="tag">Dynamic Par.</span><span class="tag">Recursion</span></div>
+    </a>
+    <a href="ch22.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 22</div>
+      <div class="ch-title">Advanced Practices &amp; Future Evolution</div>
+      <div class="ch-desc">Interaction host/device, contrôle d'exécution, futur du GPU computing et des accélérateurs</div>
+      <div class="ch-tags"><span class="tag orange">Future</span><span class="tag">Best Practices</span></div>
+    </a>
+    <a href="ch23.html" class="chapter-card">
+      <div class="ch-num">CHAPITRE 23</div>
+      <div class="ch-title">Conclusion &amp; Outlook</div>
+      <div class="ch-desc">Bilan des objectifs, perspectives futures du parallel computing, exascale et au-delà</div>
+      <div class="ch-tags"><span class="tag green">Conclusion</span><span class="tag">Big Picture</span></div>
+    </a>
+  </div>
+
+</div>
+
+<footer>
+  Basé sur <em>Programming Massively Parallel Processors, 4th Ed.</em> — Hwu, Kirk, El Hajj · Guide d'entretien technique Nvidia / AMD / Intel
+</footer>
+
+<div class="theme-backdrop" id="themeBackdrop"></div>
+<div class="theme-panel" id="themePanel">
+  <div class="theme-panel-header">
+    <h3>🎨 Choisir un thème</h3>
+    <button class="theme-close" id="themeCloseBtn">✕</button>
+  </div>
+</div>
+
+</body>
+</html>

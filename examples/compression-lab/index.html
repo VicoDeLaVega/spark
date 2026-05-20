@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Compression Lab — Position + Scale + Color</title>
+  <title>Compression Lab - Splat Quantization</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -21,6 +21,7 @@
       --purple: #a78bfa;
       --pink:   #f472b6;
       --orange: #fb923c;
+      --yellow: #facc15;
       --panel:  340px;
     }
     html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); }
@@ -115,6 +116,7 @@
     .slabel.color  { color:var(--purple); }
     .slabel.scale  { color:var(--pink); }
     .slabel.rot    { color:var(--orange); }
+    .slabel.alpha  { color:var(--yellow); }
     .slabel.view   { color:var(--muted); }
     .slabel.mem    { color:var(--cyan); }
     .slabel.metric { color:var(--muted); }
@@ -136,6 +138,7 @@
     .btn.active-color { background:rgba(167,139,250,.15); border-color:var(--purple); color:var(--purple); }
     .btn.active-scale { background:rgba(244,114,182,.15); border-color:var(--pink); color:var(--pink); }
     .btn.active-rot   { background:rgba(251,146,60,.15);  border-color:var(--orange); color:var(--orange); }
+    .btn.active-alpha { background:rgba(250,204,21,.15);  border-color:var(--yellow); color:var(--yellow); }
     .btn.active-view  { background:var(--accent); border-color:var(--accent); color:#fff; }
     .btn.primary {
       width:100%; background:var(--accent); border-color:var(--accent);
@@ -189,7 +192,59 @@
     .pill.color  { background:rgba(167,139,250,.15); color:var(--purple); border:1px solid var(--purple); }
     .pill.scale  { background:rgba(244,114,182,.15); color:var(--pink);   border:1px solid var(--pink); }
     .pill.rot    { background:rgba(251,146,60,.15);  color:var(--orange); border:1px solid var(--orange); }
+    .pill.alpha  { background:rgba(250,204,21,.15);  color:var(--yellow); border:1px solid var(--yellow); }
     .pill.off    { background:var(--bg3); color:var(--muted); border:1px solid var(--border); }
+
+    .summary-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+    .summary-card {
+      background:var(--bg2);
+      border:1px solid var(--border);
+      border-radius:8px;
+      padding:8px;
+    }
+    .summary-card .mlabel {
+      display:block;
+      margin-bottom:4px;
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.8px;
+    }
+    .summary-card .mval {
+      display:block;
+      text-align:left;
+      font-size:15px;
+      font-weight:800;
+    }
+    #sweep-results {
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-top:8px;
+    }
+    .sweep-row {
+      border:1px solid var(--border);
+      border-radius:7px;
+      background:var(--bg2);
+      padding:7px 8px;
+      font-size:11px;
+      color:var(--muted);
+      cursor:pointer;
+    }
+    .sweep-row:hover { border-color:var(--accent); color:var(--text); }
+    .sweep-row strong {
+      color:var(--green);
+      font-family:'SF Mono',monospace;
+      font-size:12px;
+    }
+    .sweep-row code {
+      color:var(--text);
+      font-family:'SF Mono',monospace;
+      font-size:10px;
+    }
 
     /* Gate */
     .gate { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; }
@@ -228,7 +283,7 @@
 <div id="panel">
   <div class="panel-hdr">
     <h1>Compression Lab</h1>
-    <p>Position + Scale + Color, independently configurable</p>
+    <p>Position + Scale + Rotation + Color + Alpha</p>
   </div>
 
   <!-- Scene -->
@@ -302,7 +357,12 @@
 
   <!-- Color compression -->
   <div class="psec">
-    <div class="slabel color">Color compression (PCA ramp)</div>
+    <div class="slabel color">#6 Color compression</div>
+    <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Model</div>
+    <div class="btn-group" id="colormode-btns">
+      <button class="btn active-color" data-mode="pca">PCA ramp</button>
+      <button class="btn" data-mode="kmeans">K-means palette</button>
+    </div>
     <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
     <div class="btn-group" id="color-btns">
       <button class="btn active-color" data-size="0">Off</button>
@@ -328,6 +388,31 @@
     </div>
   </div>
 
+  <!-- Alpha compression -->
+  <div class="psec">
+    <div class="slabel alpha">#8 Alpha compression</div>
+    <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
+    <div class="btn-group" id="alpha-btns">
+      <button class="btn active-alpha" data-size="0">Off</button>
+      <button class="btn" data-size="4">4</button>
+      <button class="btn" data-size="8">8</button>
+      <button class="btn" data-size="16">16</button>
+      <button class="btn" data-size="32">32</button>
+      <button class="btn" data-size="64">64</button>
+      <button class="btn" data-size="128">128</button>
+      <button class="btn" data-size="256">256</button>
+    </div>
+    <div class="subsec-title" style="margin-bottom:4px;">Bits</div>
+    <div class="btn-group" id="alphabits-btns">
+      <button class="btn" data-bits="2">2</button>
+      <button class="btn" data-bits="3">3</button>
+      <button class="btn active-alpha" data-bits="4">4</button>
+      <button class="btn" data-bits="5">5</button>
+      <button class="btn" data-bits="6">6</button>
+      <button class="btn" data-bits="7">7</button>
+    </div>
+  </div>
+
   <!-- View mode -->
   <div class="psec">
     <div class="slabel view">View</div>
@@ -347,6 +432,38 @@
     <div id="progress-track"><div id="progress-fill"></div></div>
   </div>
 
+  <!-- Top summary -->
+  <div class="psec">
+    <div class="slabel mem">Current estimate</div>
+    <div class="summary-grid">
+      <div class="summary-card">
+        <span class="mlabel">Compressed / splat</span>
+        <span class="mval green" id="top-splat-bytes">—</span>
+      </div>
+      <div class="summary-card">
+        <span class="mlabel">Theoretical gain</span>
+        <span class="mval warn" id="top-gain">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Experimental model -->
+  <div class="psec">
+    <div class="slabel metric">Experimental model</div>
+    <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">#3 Cluster metadata</div>
+    <div class="btn-group" id="meta-btns">
+      <button class="btn active-view" data-meta="f32">Float32</button>
+      <button class="btn" data-meta="f16">Float16</button>
+    </div>
+    <div class="subsec-title" style="margin-bottom:4px;">#5 Position bounds</div>
+    <div class="btn-group" id="posmode-btns">
+      <button class="btn active-pos" data-mode="aabb">AABB</button>
+      <button class="btn" data-mode="pca">PCA OBB</button>
+    </div>
+    <button class="btn primary" id="sweep-btn" style="margin-top:8px;">#10 Run theoretical sweep</button>
+    <div id="sweep-results"></div>
+  </div>
+
   <!-- Memory -->
   <div class="psec">
     <div class="slabel mem">Memory (theoretical)</div>
@@ -363,10 +480,12 @@
       <div class="mrow"><span class="mlabel">Rotation (compressed)</span><span class="mval" style="color:var(--orange)" id="m-rot-bytes">—</span></div>
       <div class="mrow"><span class="mlabel">Color RGB (current)</span><span class="mval cyan">3.00 B</span></div>
       <div class="mrow"><span class="mlabel">Color RGB (compressed)</span><span class="mval purple" id="m-col-bytes">—</span></div>
+      <div class="mrow"><span class="mlabel">Alpha (current)</span><span class="mval cyan">1.00 B</span></div>
+      <div class="mrow"><span class="mlabel">Alpha (compressed)</span><span class="mval" style="color:var(--yellow)" id="m-alpha-bytes">—</span></div>
       <div class="sep"></div>
       <div class="mrow"><span class="mlabel">Total current</span><span class="mval cyan" id="m-cur">—</span></div>
       <div class="mrow"><span class="mlabel">Total compressed</span><span class="mval green" id="m-cmp">—</span></div>
-      <div class="mrow"><span class="mlabel">Gain théorique</span><span class="mval warn" id="m-gain">—</span></div>
+      <div class="mrow"><span class="mlabel">Theoretical gain</span><span class="mval warn" id="m-gain">—</span></div>
     </div>
   </div>
 
@@ -449,6 +568,22 @@
     </div>
   </div>
 
+  <!-- Alpha error -->
+  <div class="psec" id="alpha-error-section">
+    <div class="slabel alpha">Alpha error (uint8 units)</div>
+    <div class="mtable">
+      <div class="mrow"><span class="mlabel">mean</span><span class="mval" style="color:var(--yellow)" id="ae-mean">—</span></div>
+      <div class="mrow"><span class="mlabel">p50</span><span class="mval" id="ae-p50">—</span></div>
+      <div class="mrow"><span class="mlabel">p90</span><span class="mval" id="ae-p90">—</span></div>
+      <div class="mrow"><span class="mlabel">p99</span><span class="mval" id="ae-p99">—</span></div>
+      <div class="gate">
+        <div class="gate-dot" id="ag0-dot"></div>
+        <span class="gate-label">p90 &lt; 8 units</span>
+        <span class="gate-val" id="ag0-val">—</span>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /panel -->
 
 <script type="importmap">
@@ -480,13 +615,18 @@ const PACKED_BYTES = 16;
 // ── State ──────────────────────────────────────────────
 let viewMode    = "ab";
 let posSize     = 0;   // 0 = off
+let posMode     = "aabb"; // "aabb" | "pca"
 let colorSize   = 0;   // 0 = off
+let colorMode   = "pca"; // "pca" | "kmeans"
 let rampColors  = 4;     // number of colors in the PCA ramp
 let rampFmt     = "888"; // "888" = RGB8 (3B/color) | "565" = RGB565 (2B/color)
 let scaleSize   = 0;     // 0 = off
 let scaleBits   = 4;     // bits per scale component
 let rotSize     = 0;     // 0 = off
 let rotBits     = 4;     // bits per rotation component
+let alphaSize   = 0;     // 0 = off
+let alphaBits   = 4;     // bits per alpha value
+let metaFmt     = "f32"; // "f32" | "f16"
 let splitX      = 0.5;
 let isDragging  = false;
 let isLoading   = false;
@@ -673,6 +813,70 @@ function pca3(colors) {
   return { mean: [mr, mg, mb], axis: [ax, ay, az], minT, maxT };
 }
 
+function normalize3(v) {
+  const len = Math.hypot(v[0], v[1], v[2]);
+  return len < 1e-12 ? [1, 0, 0] : [v[0] / len, v[1] / len, v[2] / len];
+}
+function dot3(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+function cross3(a, b) {
+  return [
+    a[1]*b[2] - a[2]*b[1],
+    a[2]*b[0] - a[0]*b[2],
+    a[0]*b[1] - a[1]*b[0],
+  ];
+}
+function mulMat3Vec(m, v) {
+  return [
+    m[0]*v[0] + m[1]*v[1] + m[2]*v[2],
+    m[1]*v[0] + m[3]*v[1] + m[4]*v[2],
+    m[2]*v[0] + m[4]*v[1] + m[5]*v[2],
+  ];
+}
+function powerAxis(m, seed, rejectAxis = null) {
+  let axis = normalize3(seed);
+  for (let iter = 0; iter < 16; iter++) {
+    let next = mulMat3Vec(m, axis);
+    if (rejectAxis) {
+      const d = dot3(next, rejectAxis);
+      next = [
+        next[0] - d * rejectAxis[0],
+        next[1] - d * rejectAxis[1],
+        next[2] - d * rejectAxis[2],
+      ];
+    }
+    axis = normalize3(next);
+  }
+  return axis;
+}
+function pcaBasis3(points) {
+  const n = points.length;
+  if (n < 3) {
+    return {
+      mean: n ? points[0].slice() : [0, 0, 0],
+      axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+    };
+  }
+
+  const mean = [0, 0, 0];
+  for (const p of points) {
+    mean[0] += p[0]; mean[1] += p[1]; mean[2] += p[2];
+  }
+  mean[0] /= n; mean[1] /= n; mean[2] /= n;
+
+  let cxx = 0, cxy = 0, cxz = 0, cyy = 0, cyz = 0, czz = 0;
+  for (const p of points) {
+    const x = p[0] - mean[0], y = p[1] - mean[1], z = p[2] - mean[2];
+    cxx += x*x; cxy += x*y; cxz += x*z;
+    cyy += y*y; cyz += y*z; czz += z*z;
+  }
+  const inv = 1 / n;
+  const cov = [cxx*inv, cxy*inv, cxz*inv, cyy*inv, cyz*inv, czz*inv];
+  const a0 = powerAxis(cov, [1, 0.3, 0.1]);
+  const a1 = powerAxis(cov, [0.2, 1, 0.4], a0);
+  const a2 = normalize3(cross3(a0, a1));
+  return { mean, axes: [a0, a1, a2] };
+}
+
 // ── RGB565 quantization (round-trip through 5/6/5 bits) ───
 function quantize565([r, g, b]) {
   const r5 = Math.round(r / 255 * 31);
@@ -684,6 +888,7 @@ function quantize565([r, g, b]) {
     Math.round(b5 / 31 * 255),
   ];
 }
+const quantizeColor = (rgb, fmt) => fmt === "565" ? quantize565(rgb) : rgb;
 
 // ── Build N-color PCA ramp ─────────────────────────────
 function buildRamp({ mean, axis, minT, maxT }, N, fmt) {
@@ -714,8 +919,51 @@ function sampleRamp(ramp, rampCoord) {
   return [0, 1, 2].map(ch => (ramp[i][ch] + f * (ramp[i+1][ch] - ramp[i][ch])) / 255);
 }
 
+function buildKmeansPalette(colors, N, fmt) {
+  if (!colors.length) return [[0, 0, 0]];
+  const palette = Array.from({ length: N }, (_, k) => {
+    const c = colors[Math.min(colors.length - 1, Math.floor((k + 0.5) * colors.length / N))];
+    return c.slice();
+  });
+  const assignments = new Uint8Array(colors.length);
+  for (let iter = 0; iter < 8; iter++) {
+    const sums = Array.from({ length: N }, () => [0, 0, 0, 0]);
+    for (let i = 0; i < colors.length; i++) {
+      const c = colors[i];
+      let best = 0, bestD = Infinity;
+      for (let k = 0; k < N; k++) {
+        const p = palette[k];
+        const d = (c[0]-p[0])**2 + (c[1]-p[1])**2 + (c[2]-p[2])**2;
+        if (d < bestD) { bestD = d; best = k; }
+      }
+      assignments[i] = best;
+      sums[best][0] += c[0]; sums[best][1] += c[1]; sums[best][2] += c[2]; sums[best][3]++;
+    }
+    for (let k = 0; k < N; k++) {
+      if (sums[k][3]) {
+        palette[k] = [
+          sums[k][0] / sums[k][3],
+          sums[k][1] / sums[k][3],
+          sums[k][2] / sums[k][3],
+        ];
+      }
+    }
+  }
+  return palette.map(c => quantizeColor(c.map(v => Math.round(v * 255)), fmt));
+}
+
+function nearestPaletteColor(palette, color) {
+  let best = palette[0], bestD = Infinity;
+  for (const p255 of palette) {
+    const p = [p255[0] / 255, p255[1] / 255, p255[2] / 255];
+    const d = (color[0]-p[0])**2 + (color[1]-p[1])**2 + (color[2]-p[2])**2;
+    if (d < bestD) { bestD = d; best = p255; }
+  }
+  return [best[0] / 255, best[1] / 255, best[2] / 255];
+}
+
 // ── Main compression pipeline ──────────────────────────
-async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, rotC, rBits) {
+async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, rotC, rBits, alphaC, aBits) {
   const n   = packed.numSplats;
   const src = packed.packedArray;
   const enc = packed.splatEncoding;
@@ -724,6 +972,7 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
   const anyScale = scaleC > 0;
   const anyRot   = rotC   > 0;
   const anyColor = colorC > 0;
+  const anyAlpha = alphaC > 0;
 
   // ── Step 1: Unpack ─────────────────────────────────
   setStatus("loading", `Unpacking ${n.toLocaleString()} splats…`);
@@ -732,6 +981,7 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
   const cx = new Float32Array(n), cy = new Float32Array(n), cz = new Float32Array(n);
   const scaleRef = new Float32Array(n);
   const cr = new Float32Array(n), cg = new Float32Array(n), cb = new Float32Array(n);
+  const ca = new Uint8Array(n);
 
   // Extract color in raw normalized [0,1] space from the packed bits directly.
   // This avoids any rgbMin/rgbMax encoding range issues — the ramp and write-back
@@ -744,6 +994,7 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
     cr[i] = (w0 & 0xff) / 255;
     cg[i] = ((w0 >>> 8)  & 0xff) / 255;
     cb[i] = ((w0 >>> 16) & 0xff) / 255;
+    ca[i] = (w0 >>> 24) & 0xff;
     if (i % 100000 === 0) { setProgress(i / n * 0.15); await tick(); }
   }
 
@@ -780,6 +1031,7 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
   const scaleErrors = anyScale ? new Float32Array(n) : null;
   const rotErrors   = anyRot   ? new Float32Array(n) : null;
   const colErrors   = anyColor ? new Float32Array(n) : null;
+  const alphaErrors = anyAlpha ? new Float32Array(n) : null;
 
   // ── Step 3a: Position quantization ────────────────
   if (anyPos) {
@@ -787,26 +1039,68 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
     const numC = Math.ceil(n / posC);
     for (let ci = 0; ci < numC; ci++) {
       const start = ci * posC, end = Math.min(start + posC, n);
-      let cMinX = Infinity, cMinY = Infinity, cMinZ = Infinity;
-      let cMaxX = -Infinity, cMaxY = -Infinity, cMaxZ = -Infinity;
-      for (let j = start; j < end; j++) {
-        const oi = indices[j];
-        if (cx[oi] < cMinX) cMinX = cx[oi]; if (cx[oi] > cMaxX) cMaxX = cx[oi];
-        if (cy[oi] < cMinY) cMinY = cy[oi]; if (cy[oi] > cMaxY) cMaxY = cy[oi];
-        if (cz[oi] < cMinZ) cMinZ = cz[oi]; if (cz[oi] > cMaxZ) cMaxZ = cz[oi];
-      }
-      const rX = cMaxX-cMinX||1e-9, rY = cMaxY-cMinY||1e-9, rZ = cMaxZ-cMinZ||1e-9;
-      for (let j = start; j < end; j++) {
-        const oi = indices[j];
-        const ox = cx[oi], oy = cy[oi], oz = cz[oi];
-        const qx = Math.min(255, Math.max(0, Math.round(255*(ox-cMinX)/rX)));
-        const qy = Math.min(255, Math.max(0, Math.round(255*(oy-cMinY)/rY)));
-        const qz = Math.min(255, Math.max(0, Math.round(255*(oz-cMinZ)/rZ)));
-        const rx = cMinX+(qx/255)*rX, ry = cMinY+(qy/255)*rY, rz = cMinZ+(qz/255)*rZ;
-        const pe = Math.sqrt((rx-ox)**2+(ry-oy)**2+(rz-oz)**2);
-        posErrors[oi] = pe;
-        relErrors[oi] = pe / Math.max(scaleRef[oi], 1e-6);
-        utils.setPackedSplatCenter(reconArray, oi, rx, ry, rz);
+      if (posMode === "pca") {
+        const points = [];
+        for (let j = start; j < end; j++) {
+          const oi = indices[j];
+          points.push([cx[oi], cy[oi], cz[oi]]);
+        }
+        const { mean, axes } = pcaBasis3(points);
+        const mins = [Infinity, Infinity, Infinity];
+        const maxs = [-Infinity, -Infinity, -Infinity];
+        const projected = [];
+        for (const p of points) {
+          const d = [p[0] - mean[0], p[1] - mean[1], p[2] - mean[2]];
+          const q = [dot3(d, axes[0]), dot3(d, axes[1]), dot3(d, axes[2])];
+          projected.push(q);
+          for (let k = 0; k < 3; k++) {
+            if (q[k] < mins[k]) mins[k] = q[k];
+            if (q[k] > maxs[k]) maxs[k] = q[k];
+          }
+        }
+        const ranges = maxs.map((v, k) => v - mins[k] || 1e-9);
+        for (let j = start; j < end; j++) {
+          const oi = indices[j];
+          const q = projected[j - start];
+          const qx = Math.min(255, Math.max(0, Math.round(255*(q[0]-mins[0])/ranges[0])));
+          const qy = Math.min(255, Math.max(0, Math.round(255*(q[1]-mins[1])/ranges[1])));
+          const qz = Math.min(255, Math.max(0, Math.round(255*(q[2]-mins[2])/ranges[2])));
+          const rq = [
+            mins[0] + (qx/255)*ranges[0],
+            mins[1] + (qy/255)*ranges[1],
+            mins[2] + (qz/255)*ranges[2],
+          ];
+          const rx = mean[0] + axes[0][0]*rq[0] + axes[1][0]*rq[1] + axes[2][0]*rq[2];
+          const ry = mean[1] + axes[0][1]*rq[0] + axes[1][1]*rq[1] + axes[2][1]*rq[2];
+          const rz = mean[2] + axes[0][2]*rq[0] + axes[1][2]*rq[1] + axes[2][2]*rq[2];
+          const ox = cx[oi], oy = cy[oi], oz = cz[oi];
+          const pe = Math.sqrt((rx-ox)**2+(ry-oy)**2+(rz-oz)**2);
+          posErrors[oi] = pe;
+          relErrors[oi] = pe / Math.max(scaleRef[oi], 1e-6);
+          utils.setPackedSplatCenter(reconArray, oi, rx, ry, rz);
+        }
+      } else {
+        let cMinX = Infinity, cMinY = Infinity, cMinZ = Infinity;
+        let cMaxX = -Infinity, cMaxY = -Infinity, cMaxZ = -Infinity;
+        for (let j = start; j < end; j++) {
+          const oi = indices[j];
+          if (cx[oi] < cMinX) cMinX = cx[oi]; if (cx[oi] > cMaxX) cMaxX = cx[oi];
+          if (cy[oi] < cMinY) cMinY = cy[oi]; if (cy[oi] > cMaxY) cMaxY = cy[oi];
+          if (cz[oi] < cMinZ) cMinZ = cz[oi]; if (cz[oi] > cMaxZ) cMaxZ = cz[oi];
+        }
+        const rX = cMaxX-cMinX||1e-9, rY = cMaxY-cMinY||1e-9, rZ = cMaxZ-cMinZ||1e-9;
+        for (let j = start; j < end; j++) {
+          const oi = indices[j];
+          const ox = cx[oi], oy = cy[oi], oz = cz[oi];
+          const qx = Math.min(255, Math.max(0, Math.round(255*(ox-cMinX)/rX)));
+          const qy = Math.min(255, Math.max(0, Math.round(255*(oy-cMinY)/rY)));
+          const qz = Math.min(255, Math.max(0, Math.round(255*(oz-cMinZ)/rZ)));
+          const rx = cMinX+(qx/255)*rX, ry = cMinY+(qy/255)*rY, rz = cMinZ+(qz/255)*rZ;
+          const pe = Math.sqrt((rx-ox)**2+(ry-oy)**2+(rz-oz)**2);
+          posErrors[oi] = pe;
+          relErrors[oi] = pe / Math.max(scaleRef[oi], 1e-6);
+          utils.setPackedSplatCenter(reconArray, oi, rx, ry, rz);
+        }
       }
       if (ci % 200 === 0) { setProgress(0.4 + (ci/numC)*0.25); await tick(); }
     }
@@ -910,25 +1204,27 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
         colors.push([cr[oi], cg[oi], cb[oi]]);
       }
 
-      // PCA + ramp
-      const pca  = pca3(colors);
-      const ramp = buildRamp(pca, nRamp, fmt);
-      const { mean, axis, minT, maxT } = pca;
-      const range = maxT - minT;
+      const pca = colorMode === "pca" ? pca3(colors) : null;
+      const ramp = colorMode === "pca" ? buildRamp(pca, nRamp, fmt) : null;
+      const palette = colorMode === "kmeans" ? buildKmeansPalette(colors, nRamp, fmt) : null;
+      const mean = pca?.mean, axis = pca?.axis, minT = pca?.minT, maxT = pca?.maxT;
+      const range = colorMode === "pca" ? maxT - minT : 0;
 
       for (let j = start; j < end; j++) {
         const oi = indices[j];
         const r0 = cr[oi], g0 = cg[oi], b0 = cb[oi];
 
-        // Encode rampCoord
-        let rampCoord = 0;
-        if (range > 1e-6) {
-          const proj = (r0-mean[0])*axis[0] + (g0-mean[1])*axis[1] + (b0-mean[2])*axis[2];
-          rampCoord = Math.min(255, Math.max(0, Math.round(((proj-minT)/range)*255)));
+        let rr, rg, rb;
+        if (colorMode === "kmeans") {
+          [rr, rg, rb] = nearestPaletteColor(palette, [r0, g0, b0]);
+        } else {
+          let rampCoord = 0;
+          if (range > 1e-6) {
+            const proj = (r0-mean[0])*axis[0] + (g0-mean[1])*axis[1] + (b0-mean[2])*axis[2];
+            rampCoord = Math.min(255, Math.max(0, Math.round(((proj-minT)/range)*255)));
+          }
+          [rr, rg, rb] = sampleRamp(ramp, rampCoord);
         }
-
-        // Reconstruct
-        const [rr, rg, rb] = sampleRamp(ramp, rampCoord);
 
         // Color error (L2 in [0,1] space)
         if (colErrors) {
@@ -948,6 +1244,33 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
     }
   }
 
+  // ── Step 3e: Alpha quantization ───────────────────
+  if (anyAlpha) {
+    setStatus("loading", `Alpha quant (c=${alphaC}, ${aBits} bits)…`);
+    const levels = (1 << aBits) - 1;
+    const numC = Math.ceil(n / alphaC);
+    for (let ci = 0; ci < numC; ci++) {
+      const start = ci * alphaC, end = Math.min(start + alphaC, n);
+      let mn = 255, mx = 0;
+      for (let j = start; j < end; j++) {
+        const a = ca[indices[j]];
+        if (a < mn) mn = a;
+        if (a > mx) mx = a;
+      }
+      const range = mx - mn || 1;
+      for (let j = start; j < end; j++) {
+        const oi = indices[j];
+        const a = ca[oi];
+        const qa = Math.round((a - mn) / range * levels);
+        const ra = Math.round(qa / levels * range) + mn;
+        alphaErrors[oi] = Math.abs(ra - a);
+        const i4 = oi * 4;
+        reconArray[i4] = (reconArray[i4] & 0x00ffffff) | ((ra & 0xff) << 24);
+      }
+      if (ci % 200 === 0) { setProgress(0.95 + (ci/numC)*0.04); await tick(); }
+    }
+  }
+
   // ── Step 4: Stats ──────────────────────────────────
   setStatus("loading", "Computing stats…"); setProgress(0.9); await tick();
 
@@ -956,6 +1279,7 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
   const scaleStats = anyScale ? pct(scaleErrors) : null;
   const rotStats   = anyRot   ? pct(rotErrors)   : null;
   const colStats   = anyColor ? pct(colErrors)   : null;
+  const alphaStats = anyAlpha ? pct(alphaErrors) : null;
 
   // MSE for PSNR
   let mse = 0;
@@ -966,8 +1290,8 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
   const psnr = anyColor && mse > 0 ? 10 * Math.log10(1 / mse) : Infinity;
 
   setProgress(1);
-  return { reconArray, n, posStats, relStats, scaleStats, rotStats, colStats, psnr,
-           anyPos, anyScale, anyRot, anyColor, nRamp, fmt, sBits, scaleC, rotC, rBits };
+  return { reconArray, n, posStats, relStats, scaleStats, rotStats, colStats, alphaStats, psnr,
+           anyPos, anyScale, anyRot, anyColor, anyAlpha, nRamp, fmt, sBits, scaleC, rotC, rBits, alphaC, aBits };
 }
 
 // ── Format helpers ─────────────────────────────────────
@@ -981,6 +1305,50 @@ const f4 = v => Number.isFinite(v) ? v.toFixed(4) : "—";
 const f2 = v => Number.isFinite(v) ? v.toFixed(2) : "—";
 const fPct = v => (v*100).toFixed(1)+" %";
 
+function estimateMemory({
+  n,
+  posC = posSize,
+  pMode = posMode,
+  scaleC = scaleSize,
+  sBits = scaleBits,
+  rotC = rotSize,
+  rBits = rotBits,
+  colorC = colorSize,
+  cMode = colorMode,
+  nRamp = rampColors,
+  fmt = rampFmt,
+  alphaC = alphaSize,
+  aBits = alphaBits,
+  meta = metaFmt,
+} = {}) {
+  const metaBytes = meta === "f16" ? 2 : 4;
+  const rampBpc = fmt === "565" ? 2 : 3;
+  const posMetaComponents = pMode === "pca" ? 15 : 6;
+  const posBytes = posC > 0 ? 3 + (posMetaComponents * metaBytes) / posC : 6;
+  const scaleBytes = scaleC > 0 ? (sBits * 3 / 8) + (6 * metaBytes) / scaleC : 3;
+  const rotBytes = rotC > 0 ? (rBits * 3 / 8) + (6 * metaBytes) / rotC : 3;
+  const colorIndexBytes = cMode === "kmeans"
+    ? Math.ceil(Math.log2(Math.max(2, nRamp))) / 8
+    : 1;
+  const colorBytes = colorC > 0 ? colorIndexBytes + (nRamp * rampBpc) / colorC : 3;
+  const alphaBytes = alphaC > 0 ? (aBits / 8) + (2 * metaBytes) / alphaC : 1;
+  const cmpTotal =
+    PACKED_BYTES
+    - 6 + posBytes
+    - 3 + scaleBytes
+    - 3 + rotBytes
+    - 3 + colorBytes
+    - 1 + alphaBytes;
+  const gain = (PACKED_BYTES - cmpTotal) / PACKED_BYTES;
+  return {
+    posBytes, scaleBytes, rotBytes, colorBytes, alphaBytes,
+    cmpTotal, gain,
+    currentBytes: n ? n * PACKED_BYTES : null,
+    compressedBytes: n ? n * cmpTotal : null,
+    savedBytes: n ? n * (PACKED_BYTES - cmpTotal) : null,
+  };
+}
+
 // ── Update memory panel ────────────────────────────────
 function updateMemory(n, overrideRamp, overrideFmt, overrideScaleC, overrideSBits, overrideRotC, overrideRBits) {
   const rampColors_  = overrideRamp   ?? rampColors;
@@ -990,35 +1358,38 @@ function updateMemory(n, overrideRamp, overrideFmt, overrideScaleC, overrideSBit
   const scaleBits_   = overrideSBits  ?? scaleBits;
   const rotSize_     = overrideRotC   ?? rotSize;
   const rotBits_     = overrideRBits  ?? rotBits;
+  const est = estimateMemory({
+    n,
+    scaleC: scaleSize_,
+    sBits: scaleBits_,
+    rotC: rotSize_,
+    rBits: rotBits_,
+  });
   const pills = document.getElementById("mode-pills");
   pills.innerHTML = "";
   const mkPill = (label, cls) => {
     const p = document.createElement("span");
     p.className = "pill " + cls; p.textContent = label; pills.appendChild(p);
   };
-  mkPill(posSize    > 0 ? `Pos c=${posSize}`                              : "Pos off", posSize    > 0 ? "pos"   : "off");
+  mkPill(posSize    > 0 ? `Pos c=${posSize} ${posMode}`                  : "Pos off", posSize    > 0 ? "pos"   : "off");
   mkPill(scaleSize_ > 0 ? `Sc c=${scaleSize_} ${scaleBits_}b`  : "Sc off",  scaleSize_ > 0 ? "scale" : "off");
   mkPill(rotSize_   > 0 ? `Rot c=${rotSize_} ${rotBits_}b`    : "Rot off", rotSize_   > 0 ? "rot"   : "off");
-  mkPill(colorSize  > 0 ? `Col c=${colorSize} r=${rampColors_} ${rampFmt_}` : "Col off", colorSize > 0 ? "color" : "off");
-
-  const posBytes   = posSize    > 0 ? 3 + 24/posSize                          : 6;
-  const scaleBytes = scaleSize_ > 0 ? (scaleBits_ * 3 / 8) + 6 / scaleSize_ : 3;
-  const rotBytes   = rotSize_   > 0 ? (rotBits_   * 3 / 8) + 6 / rotSize_   : 3;
-  const colorBytes = colorSize  > 0 ? 1 + (rampColors_ * rampBpc) / colorSize : 3;
-  // 16 bytes = 6 pos + 3 scale + 3 rot + 3 color + 1 opacity
-  const cmpTotal = PACKED_BYTES - 6 + posBytes - 3 + scaleBytes - 3 + rotBytes - 3 + colorBytes;
-  const gain = (PACKED_BYTES - cmpTotal) / PACKED_BYTES;
+  mkPill(colorSize  > 0 ? `Col c=${colorSize} ${colorMode} r=${rampColors_} ${rampFmt_}` : "Col off", colorSize > 0 ? "color" : "off");
+  mkPill(alphaSize  > 0 ? `A c=${alphaSize} ${alphaBits}b`              : "A off", alphaSize > 0 ? "alpha" : "off");
 
   document.getElementById("m-n").textContent            = n ? n.toLocaleString() : "—";
-  document.getElementById("m-pos-bytes").textContent   = posSize    > 0 ? posBytes.toFixed(4)+" B"   : "—";
-  document.getElementById("m-scale-bytes").textContent = scaleSize_ > 0 ? scaleBytes.toFixed(4)+" B" : "—";
-  document.getElementById("m-rot-bytes").textContent   = rotSize_   > 0 ? rotBytes.toFixed(4)+" B"   : "—";
-  document.getElementById("m-col-bytes").textContent   = colorSize  > 0 ? colorBytes.toFixed(4)+" B" : "—";
+  document.getElementById("m-pos-bytes").textContent   = posSize    > 0 ? est.posBytes.toFixed(4)+" B"   : "—";
+  document.getElementById("m-scale-bytes").textContent = scaleSize_ > 0 ? est.scaleBytes.toFixed(4)+" B" : "—";
+  document.getElementById("m-rot-bytes").textContent   = rotSize_   > 0 ? est.rotBytes.toFixed(4)+" B"   : "—";
+  document.getElementById("m-col-bytes").textContent   = colorSize  > 0 ? est.colorBytes.toFixed(4)+" B" : "—";
+  document.getElementById("m-alpha-bytes").textContent = alphaSize  > 0 ? est.alphaBytes.toFixed(4)+" B" : "—";
   document.getElementById("m-cur").textContent  = n ? fmtB(n * PACKED_BYTES) : "—";
-  document.getElementById("m-cmp").textContent  = n ? fmtB(n * cmpTotal)     : "—";
+  document.getElementById("m-cmp").textContent  = n ? fmtB(n * est.cmpTotal) : "—";
   document.getElementById("m-gain").textContent = n
-    ? `−${fmtB(n*(PACKED_BYTES-cmpTotal))}  (${fPct(gain)})`
-    : "—";
+    ? `−${fmtB(est.savedBytes)}  (${fPct(est.gain)})`
+    : fPct(est.gain);
+  document.getElementById("top-splat-bytes").textContent = est.cmpTotal.toFixed(2) + " B";
+  document.getElementById("top-gain").textContent = fPct(est.gain);
 }
 
 // ── Update error panels ────────────────────────────────
@@ -1034,17 +1405,18 @@ function updateErrors(results) {
     ["pe-mean","pe-p50","pe-p90","pe-p99","pe-rel90","pe-rel99",
      "se-mean","se-p50","se-p90","se-p99",
      "re-mean","re-p50","re-p90","re-p99",
-     "ce-mean","ce-p50","ce-p90","ce-p99","ce-psnr"].forEach(id => {
+     "ce-mean","ce-p50","ce-p90","ce-p99","ce-psnr",
+     "ae-mean","ae-p50","ae-p90","ae-p99"].forEach(id => {
       document.getElementById(id).textContent = "—";
     });
-    ["pg0-dot","pg1-dot","sg0-dot","rg0-dot","cg0-dot","cg1-dot"].forEach(id =>
+    ["pg0-dot","pg1-dot","sg0-dot","rg0-dot","cg0-dot","cg1-dot","ag0-dot"].forEach(id =>
       document.getElementById(id).className = "gate-dot");
-    ["pg0-val","pg1-val","sg0-val","rg0-val","cg0-val","cg1-val"].forEach(id =>
+    ["pg0-val","pg1-val","sg0-val","rg0-val","cg0-val","cg1-val","ag0-val"].forEach(id =>
       document.getElementById(id).textContent = "—");
     return;
   }
-  const { posStats, relStats, scaleStats, rotStats, colStats, psnr,
-          anyPos, anyScale, anyRot, anyColor } = results;
+  const { posStats, relStats, scaleStats, rotStats, colStats, alphaStats, psnr,
+          anyPos, anyScale, anyRot, anyColor, anyAlpha } = results;
 
   if (anyPos && posStats) {
     document.getElementById("pe-mean").textContent = f4(posStats.mean);
@@ -1082,6 +1454,14 @@ function updateErrors(results) {
     gate("cg0-dot","cg0-val", colStats.p90 < 0.05,  colStats.p90, f4);
     gate("cg1-dot","cg1-val", psnr > 30, psnr, v => f2(v)+" dB");
   }
+
+  if (anyAlpha && alphaStats) {
+    document.getElementById("ae-mean").textContent = f4(alphaStats.mean);
+    document.getElementById("ae-p50").textContent  = f4(alphaStats.p50);
+    document.getElementById("ae-p90").textContent  = f4(alphaStats.p90);
+    document.getElementById("ae-p99").textContent  = f4(alphaStats.p99);
+    gate("ag0-dot","ag0-val", alphaStats.p90 < 8, alphaStats.p90, f4);
+  }
 }
 
 // ── Load & compress ────────────────────────────────────
@@ -1105,7 +1485,7 @@ async function loadAndCompress() {
     await originalPacked.initialized;
     meshA.packedSplats = originalPacked;
 
-    const doAnything = posSize > 0 || colorSize > 0 || scaleSize > 0 || rotSize > 0;
+    const doAnything = posSize > 0 || colorSize > 0 || scaleSize > 0 || rotSize > 0 || alphaSize > 0;
     if (!doAnything) {
       // Both off — just show original in both
       meshB.packedSplats = originalPacked;
@@ -1113,7 +1493,7 @@ async function loadAndCompress() {
       setStatus("ready", "No compression active — both views show original");
       setProgress(0);
     } else {
-      const results = await runCompression(originalPacked, posSize, colorSize, rampColors, rampFmt, scaleSize, scaleBits, rotSize, rotBits);
+      const results = await runCompression(originalPacked, posSize, colorSize, rampColors, rampFmt, scaleSize, scaleBits, rotSize, rotBits, alphaSize, alphaBits);
       reconPacked = new PackedSplats({ packedArray: results.reconArray });
       await reconPacked.initialized;
       meshB.packedSplats = reconPacked;
@@ -1124,7 +1504,10 @@ async function loadAndCompress() {
 
       const bits = [];
       if (posSize > 0)   bits.push(`pos c=${posSize} p99rel=${f4(results.relStats?.p99)}`);
+      if (scaleSize > 0) bits.push(`scale c=${scaleSize} p90=${f4(results.scaleStats?.p90)}`);
+      if (rotSize > 0)   bits.push(`rot c=${rotSize} p90=${f4(results.rotStats?.p90)}`);
       if (colorSize > 0) bits.push(`col c=${colorSize} PSNR=${f2(results.psnr)} dB`);
+      if (alphaSize > 0) bits.push(`alpha c=${alphaSize} p90=${f4(results.alphaStats?.p90)}`);
       setStatus("ready", bits.join(" · "));
     }
 
@@ -1149,77 +1532,195 @@ function animate() {
 requestAnimationFrame(animate);
 
 // ── UI wiring ──────────────────────────────────────────
+function activateGroup(selector, dataName, value, activeClass) {
+  document.querySelectorAll(selector + " .btn").forEach(btn => {
+    btn.classList.toggle(activeClass, btn.dataset[dataName] === String(value));
+  });
+}
+
+function applyConfig(cfg) {
+  if ("posSize" in cfg) posSize = cfg.posSize;
+  if ("posMode" in cfg) posMode = cfg.posMode;
+  if ("scaleSize" in cfg) scaleSize = cfg.scaleSize;
+  if ("scaleBits" in cfg) scaleBits = cfg.scaleBits;
+  if ("rotSize" in cfg) rotSize = cfg.rotSize;
+  if ("rotBits" in cfg) rotBits = cfg.rotBits;
+  if ("colorSize" in cfg) colorSize = cfg.colorSize;
+  if ("colorMode" in cfg) colorMode = cfg.colorMode;
+  if ("rampColors" in cfg) rampColors = cfg.rampColors;
+  if ("rampFmt" in cfg) rampFmt = cfg.rampFmt;
+  if ("alphaSize" in cfg) alphaSize = cfg.alphaSize;
+  if ("alphaBits" in cfg) alphaBits = cfg.alphaBits;
+  if ("metaFmt" in cfg) metaFmt = cfg.metaFmt;
+
+  activateGroup("#pos-btns", "size", posSize, "active-pos");
+  activateGroup("#posmode-btns", "mode", posMode, "active-pos");
+  activateGroup("#scale-btns", "size", scaleSize, "active-scale");
+  activateGroup("#scalebits-btns", "bits", scaleBits, "active-scale");
+  activateGroup("#rot-btns", "size", rotSize, "active-rot");
+  activateGroup("#rotbits-btns", "bits", rotBits, "active-rot");
+  activateGroup("#color-btns", "size", colorSize, "active-color");
+  activateGroup("#colormode-btns", "mode", colorMode, "active-color");
+  activateGroup("#ramp-btns", "ramp", rampColors, "active-color");
+  activateGroup("#fmt-btns", "fmt", rampFmt, "active-color");
+  activateGroup("#alpha-btns", "size", alphaSize, "active-alpha");
+  activateGroup("#alphabits-btns", "bits", alphaBits, "active-alpha");
+  activateGroup("#meta-btns", "meta", metaFmt, "active-view");
+  updateMemory(originalPacked?.numSplats ?? null);
+}
+
+function runTheoreticalSweep() {
+  const n = originalPacked?.numSplats ?? 500000;
+  const candidates = [];
+  const push = (cfg) => {
+    const est = estimateMemory({ n, ...cfg });
+    if (est.gain <= 0 || est.cmpTotal <= 0) return;
+    candidates.push({ cfg, est });
+  };
+
+  for (const meta of ["f16", "f32"]) {
+    for (const pMode of ["aabb", "pca"]) {
+      for (const posC of [0, 64, 128, 256]) {
+        for (const scaleC of [0, 64, 128]) {
+          for (const sBits of [4, 5]) {
+            for (const colorC of [0, 64, 128]) {
+              for (const cMode of ["pca", "kmeans"]) {
+                for (const nRamp of [4, 8]) {
+                  for (const alphaC of [0, 128]) {
+                    for (const aBits of [4, 6]) {
+                      push({
+                        meta,
+                        pMode,
+                        posC,
+                        scaleC,
+                        sBits,
+                        colorC,
+                        cMode,
+                        nRamp,
+                        fmt: "565",
+                        alphaC,
+                        aBits,
+                        rotC: rotSize,
+                        rBits: rotBits,
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  candidates.sort((a, b) => b.est.gain - a.est.gain);
+  const results = document.getElementById("sweep-results");
+  results.innerHTML = "";
+  for (const { cfg, est } of candidates.slice(0, 8)) {
+    const row = document.createElement("div");
+    row.className = "sweep-row";
+    row.innerHTML = `
+      <strong>${est.cmpTotal.toFixed(2)} B/splat · ${fPct(est.gain)}</strong><br>
+      <code>meta=${cfg.meta} pos=${cfg.posC || "off"} ${cfg.pMode} scale=${cfg.scaleC || "off"} ${cfg.sBits}b color=${cfg.colorC || "off"} ${cfg.cMode} r=${cfg.nRamp} alpha=${cfg.alphaC || "off"} ${cfg.aBits}b</code>
+    `;
+    row.addEventListener("click", () => {
+      applyConfig({
+        metaFmt: cfg.meta,
+        posSize: cfg.posC,
+        posMode: cfg.pMode,
+        scaleSize: cfg.scaleC,
+        scaleBits: cfg.sBits,
+        colorSize: cfg.colorC,
+        colorMode: cfg.cMode,
+        rampColors: cfg.nRamp,
+        rampFmt: cfg.fmt,
+        alphaSize: cfg.alphaC,
+        alphaBits: cfg.aBits,
+      });
+    });
+    results.appendChild(row);
+  }
+}
+
 loadBtn.addEventListener("click", loadAndCompress);
+document.getElementById("sweep-btn").addEventListener("click", runTheoreticalSweep);
 
 document.querySelectorAll("#pos-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#pos-btns .btn").forEach(b => b.classList.remove("active-pos"));
-    btn.classList.add("active-pos");
-    posSize = Number(btn.dataset.size);
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ posSize: Number(btn.dataset.size) });
+  });
+});
+
+document.querySelectorAll("#posmode-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyConfig({ posMode: btn.dataset.mode });
   });
 });
 
 document.querySelectorAll("#color-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#color-btns .btn").forEach(b => b.classList.remove("active-color"));
-    btn.classList.add("active-color");
-    colorSize = Number(btn.dataset.size);
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ colorSize: Number(btn.dataset.size) });
+  });
+});
+
+document.querySelectorAll("#colormode-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyConfig({ colorMode: btn.dataset.mode });
   });
 });
 
 document.querySelectorAll("#ramp-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#ramp-btns .btn").forEach(b => b.classList.remove("active-color"));
-    btn.classList.add("active-color");
-    rampColors = Number(btn.dataset.ramp);
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ rampColors: Number(btn.dataset.ramp) });
   });
 });
 
 document.querySelectorAll("#scale-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#scale-btns .btn").forEach(b => b.classList.remove("active-scale"));
-    btn.classList.add("active-scale");
-    scaleSize = Number(btn.dataset.size);
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ scaleSize: Number(btn.dataset.size) });
   });
 });
 
 document.querySelectorAll("#scalebits-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#scalebits-btns .btn").forEach(b => b.classList.remove("active-scale"));
-    btn.classList.add("active-scale");
-    scaleBits = Number(btn.dataset.bits);
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ scaleBits: Number(btn.dataset.bits) });
   });
 });
 
 document.querySelectorAll("#rot-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#rot-btns .btn").forEach(b => b.classList.remove("active-rot"));
-    btn.classList.add("active-rot");
-    rotSize = Number(btn.dataset.size);
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ rotSize: Number(btn.dataset.size) });
   });
 });
 
 document.querySelectorAll("#rotbits-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#rotbits-btns .btn").forEach(b => b.classList.remove("active-rot"));
-    btn.classList.add("active-rot");
-    rotBits = Number(btn.dataset.bits);
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ rotBits: Number(btn.dataset.bits) });
   });
 });
 
 document.querySelectorAll("#fmt-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll("#fmt-btns .btn").forEach(b => b.classList.remove("active-color"));
-    btn.classList.add("active-color");
-    rampFmt = btn.dataset.fmt;
-    updateMemory(originalPacked?.numSplats ?? null);
+    applyConfig({ rampFmt: btn.dataset.fmt });
+  });
+});
+
+document.querySelectorAll("#alpha-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyConfig({ alphaSize: Number(btn.dataset.size) });
+  });
+});
+
+document.querySelectorAll("#alphabits-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyConfig({ alphaBits: Number(btn.dataset.bits) });
+  });
+});
+
+document.querySelectorAll("#meta-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyConfig({ metaFmt: btn.dataset.meta });
   });
 });
 

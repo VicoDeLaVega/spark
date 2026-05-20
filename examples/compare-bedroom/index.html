@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Spark — Greyscale Bedroom</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #050a0f; overflow: hidden; }
+    #info {
+      position: fixed; top: 10px; left: 10px; z-index: 10;
+      color: #fff; font: 13px monospace;
+      background: rgba(0,0,0,.7); padding: 8px 12px; border-radius: 6px;
+      pointer-events: none; white-space: pre;
+    }
+  </style>
+</head>
+<body>
+<div id="info">Loading…</div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "../js/vendor/three/build/three.module.js",
+    "lil-gui": "/examples/js/vendor/lil-gui/dist/lil-gui.esm.js",
+    "@sparkjsdev/spark": "../../dist/spark.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { SparkRenderer, SplatMesh, SparkControls } from "@sparkjsdev/spark";
+import { getAssetFileURL } from "../js/get-asset-url.js";
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020408);
+
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.01, 500);
+camera.position.set(0, 0, 3);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const spark = new SparkRenderer({ renderer });
+scene.add(spark);
+
+const controls = new SparkControls({ canvas: renderer.domElement });
+
+window.sparkLocalAssets = true;
+const url = await getAssetFileURL("greyscale-bedroom.spz");
+
+// Use default LoD — Spark decimates to a manageable count quickly
+const splats = new SplatMesh({ url });
+scene.add(splats);
+
+const info = document.getElementById("info");
+let frameCount = 0, lastTime = performance.now();
+let firstFrame = true;
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update(camera);
+  renderer.render(scene, camera);
+
+  if (firstFrame && splats.numSplats > 0) {
+    firstFrame = false;
+    info.textContent = `Ready! Splats: ${splats.numSplats.toLocaleString()}`;
+  }
+
+  frameCount++;
+  const now = performance.now();
+  if (now - lastTime > 2000) {
+    const fps = (frameCount / ((now - lastTime) / 1000)).toFixed(1);
+    info.textContent = `Spark — greyscale-bedroom.spz\nSplats: ${(splats.numSplats ?? 0).toLocaleString()}\nFPS: ${fps}`;
+    frameCount = 0;
+    lastTime = now;
+  }
+}
+animate();
+
+window.addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

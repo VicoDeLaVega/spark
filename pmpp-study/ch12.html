@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Ch.12 — Merge</title>
+<style>
+:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2234;--accent:#00d4ff;--accent2:#7c3aed;--green:#10b981;--orange:#f59e0b;--red:#ef4444;--text:#e2e8f0;--muted:#94a3b8;--border:#1e2d45;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.7;}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:8px;overflow-x:auto;font-size:12px;flex-wrap:nowrap;}
+nav a{color:var(--muted);text-decoration:none;padding:12px 6px;white-space:nowrap;border-bottom:2px solid transparent;transition:.2s;}
+nav a:hover,nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+nav .home{color:var(--accent);font-weight:600;margin-right:8px;}
+.hero{background:linear-gradient(135deg,#0a0e1a 0%,#0d1b3e 60%,#1a0a2e 100%);padding:40px;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 0% 50%,rgba(0,212,255,0.06) 0%,transparent 60%);pointer-events:none;}
+.part-badge{display:inline-block;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:var(--accent);padding:3px 12px;border-radius:20px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;}
+.hero h1{font-size:clamp(22px,4vw,38px);font-weight:800;background:linear-gradient(135deg,#fff 0%,var(--accent) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px;}
+.hero .subtitle{color:var(--muted);font-size:14px;margin-bottom:16px;}
+.pager{display:flex;gap:12px;margin-top:16px;}
+.pager a{color:var(--accent);text-decoration:none;font-size:13px;opacity:.8;}
+.pager a:hover{opacity:1;}
+.container{max-width:900px;margin:0 auto;padding:40px;}
+h2{font-size:20px;font-weight:700;color:var(--accent);margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+h3{font-size:16px;font-weight:600;color:#a78bfa;margin:24px 0 8px;}
+p{color:var(--text);font-size:14px;margin-bottom:12px;}
+/* Code */
+.code{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:20px;margin:16px 0;overflow-x:auto;}
+.code pre{font-family:'Fira Code','Cascadia Code',monospace;font-size:12.5px;line-height:1.6;color:#e2e8f0;white-space:pre;}
+.code .kw{color:#ff7b72;}
+.code .fn{color:#d2a8ff;}
+.code .cm{color:#8b949e;font-style:italic;}
+.code .st{color:#a5d6ff;}
+.code .nm{color:#79c0ff;}
+/* Concept box */
+.concept{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:18px 20px;margin:16px 0;}
+.concept h4{color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.concept p,.concept li{font-size:13px;color:var(--text);}
+.concept ul{padding-left:16px;}
+.concept li{margin-bottom:4px;}
+/* Interview box */
+.itw{background:linear-gradient(135deg,rgba(124,58,237,0.07),rgba(0,212,255,0.04));border:1px solid rgba(124,58,237,0.35);border-radius:10px;padding:20px 24px;margin:24px 0;}
+.itw .itw-title{color:#a78bfa;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+.itw ul{list-style:none;}
+.itw li{padding:5px 0;font-size:13px;color:var(--text);}
+.itw li::before{content:'▶ ';color:#7c3aed;font-size:10px;}
+/* Formula */
+.formula{background:#0d1117;border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:14px 20px;margin:14px 0;font-family:monospace;font-size:14px;color:var(--accent);text-align:center;}
+/* SVG diagram */
+.diagram{margin:24px 0;text-align:center;}
+.diagram svg{max-width:100%;}
+/* Key points */
+.keypoint{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);}
+.keypoint:last-child{border-bottom:none;}
+.kp-icon{font-size:18px;flex-shrink:0;}
+.kp-text{font-size:13px;color:var(--text);}
+.kp-text strong{color:var(--accent);}
+/* Warning */
+.warn{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13px;color:var(--orange);}
+/* Tag pill */
+.pill{display:inline-block;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);color:var(--accent);padding:2px 10px;border-radius:12px;font-size:11px;margin:2px;}
+.pill.g{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.25);color:var(--green);}
+.pill.p{background:rgba(124,58,237,0.1);border-color:rgba(124,58,237,0.25);color:#a78bfa;}
+.pill.o{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);color:var(--orange);}
+footer{text-align:center;padding:24px;color:var(--muted);font-size:12px;border-top:1px solid var(--border);margin-top:60px;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{background:var(--bg3);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);}
+td{padding:9px 14px;border-bottom:1px solid rgba(30,45,69,0.5);color:var(--text);}
+tr:hover td{background:rgba(0,212,255,0.03);}
+
+
+  /* ============================================================
+     THEME SYSTEM — 12 dark + 12 light
+  ============================================================ */
+
+  /* --- DARK THEMES --- */
+  [data-theme="midnight"] {
+    --bg:#0a0e1a; --bg2:#111827; --bg3:#1a2234;
+    --accent:#00d4ff; --accent2:#7c3aed; --green:#10b981;
+    --orange:#f59e0b; --red:#ef4444; --text:#e2e8f0; --muted:#94a3b8; --border:#1e2d45;
+    --hero-grad: linear-gradient(135deg,#0a0e1a 0%,#0d1b3e 50%,#1a0a2e 100%);
+  }
+  [data-theme="matrix"] {
+    --bg:#000d00; --bg2:#001a00; --bg3:#002600;
+    --accent:#00ff41; --accent2:#00cc33; --green:#00ff41;
+    --orange:#ccff00; --red:#ff0040; --text:#b3ffb3; --muted:#4dbb4d; --border:#003300;
+    --hero-grad: linear-gradient(135deg,#000d00 0%,#001a00 50%,#000d00 100%);
+  }
+  [data-theme="dracula"] {
+    --bg:#282a36; --bg2:#21222c; --bg3:#2d2f3d;
+    --accent:#bd93f9; --accent2:#ff79c6; --green:#50fa7b;
+    --orange:#ffb86c; --red:#ff5555; --text:#f8f8f2; --muted:#6272a4; --border:#44475a;
+    --hero-grad: linear-gradient(135deg,#282a36 0%,#1e1e2e 50%,#3d1f4e 100%);
+  }
+  [data-theme="monokai"] {
+    --bg:#272822; --bg2:#1e1f1c; --bg3:#2d2e2a;
+    --accent:#a6e22e; --accent2:#66d9e8; --green:#a6e22e;
+    --orange:#fd971f; --red:#f92672; --text:#f8f8f2; --muted:#75715e; --border:#3e3d32;
+    --hero-grad: linear-gradient(135deg,#272822 0%,#1e1e18 50%,#1c1c1a 100%);
+  }
+  [data-theme="nord"] {
+    --bg:#2e3440; --bg2:#3b4252; --bg3:#434c5e;
+    --accent:#88c0d0; --accent2:#b48ead; --green:#a3be8c;
+    --orange:#ebcb8b; --red:#bf616a; --text:#eceff4; --muted:#81a1c1; --border:#4c566a;
+    --hero-grad: linear-gradient(135deg,#2e3440 0%,#3b4252 50%,#2e3440 100%);
+  }
+  [data-theme="gruvbox"] {
+    --bg:#282828; --bg2:#32302f; --bg3:#3c3836;
+    --accent:#fabd2f; --accent2:#fe8019; --green:#b8bb26;
+    --orange:#fe8019; --red:#fb4934; --text:#ebdbb2; --muted:#928374; --border:#504945;
+    --hero-grad: linear-gradient(135deg,#282828 0%,#3c3836 50%,#282828 100%);
+  }
+  [data-theme="tokyo"] {
+    --bg:#1a1b2e; --bg2:#16213e; --bg3:#0f3460;
+    --accent:#7aa2f7; --accent2:#bb9af7; --green:#9ece6a;
+    --orange:#ff9e64; --red:#f7768e; --text:#c0caf5; --muted:#565f89; --border:#292e42;
+    --hero-grad: linear-gradient(135deg,#1a1b2e 0%,#16213e 50%,#0d0f1e 100%);
+  }
+  [data-theme="synthwave"] {
+    --bg:#0d0221; --bg2:#140330; --bg3:#1a0540;
+    --accent:#f72585; --accent2:#7209b7; --green:#4cc9f0;
+    --orange:#fb8500; --red:#f72585; --text:#e0aaff; --muted:#7b2d8b; --border:#2d0e5a;
+    --hero-grad: linear-gradient(135deg,#0d0221 0%,#1a0540 40%,#240750 100%);
+  }
+  [data-theme="onedark"] {
+    --bg:#282c34; --bg2:#21252b; --bg3:#2c313c;
+    --accent:#61afef; --accent2:#c678dd; --green:#98c379;
+    --orange:#e5c07b; --red:#e06c75; --text:#abb2bf; --muted:#5c6370; --border:#3e4451;
+    --hero-grad: linear-gradient(135deg,#282c34 0%,#21252b 50%,#282c34 100%);
+  }
+  [data-theme="solarized-dark"] {
+    --bg:#002b36; --bg2:#073642; --bg3:#0d4a57;
+    --accent:#2aa198; --accent2:#6c71c4; --green:#859900;
+    --orange:#cb4b16; --red:#dc322f; --text:#839496; --muted:#586e75; --border:#073642;
+    --hero-grad: linear-gradient(135deg,#002b36 0%,#073642 50%,#002b36 100%);
+  }
+  [data-theme="catppuccin"] {
+    --bg:#1e1e2e; --bg2:#181825; --bg3:#313244;
+    --accent:#cba6f7; --accent2:#f38ba8; --green:#a6e3a1;
+    --orange:#fab387; --red:#f38ba8; --text:#cdd6f4; --muted:#6c7086; --border:#313244;
+    --hero-grad: linear-gradient(135deg,#1e1e2e 0%,#181825 50%,#11111b 100%);
+  }
+  [data-theme="cobalt"] {
+    --bg:#0a1628; --bg2:#122140; --bg3:#1a2e52;
+    --accent:#ffd700; --accent2:#ff8c00; --green:#5af78e;
+    --orange:#ff8c00; --red:#ff5c57; --text:#d6e4f0; --muted:#5b7fa6; --border:#1e3a5f;
+    --hero-grad: linear-gradient(135deg,#0a1628 0%,#122140 50%,#0a1628 100%);
+  }
+
+  /* --- LIGHT THEMES --- */
+  [data-theme="light-clean"] {
+    --bg:#f8fafc; --bg2:#ffffff; --bg3:#f1f5f9;
+    --accent:#0284c7; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#1e293b; --muted:#64748b; --border:#e2e8f0;
+    --hero-grad: linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 50%,#ede9fe 100%);
+  }
+  [data-theme="light-solarized"] {
+    --bg:#fdf6e3; --bg2:#eee8d5; --bg3:#e8e0cc;
+    --accent:#268bd2; --accent2:#6c71c4; --green:#859900;
+    --orange:#cb4b16; --red:#dc322f; --text:#657b83; --muted:#93a1a1; --border:#d3cbb8;
+    --hero-grad: linear-gradient(135deg,#fdf6e3 0%,#eee8d5 50%,#fdf6e3 100%);
+  }
+  [data-theme="light-github"] {
+    --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+    --accent:#0969da; --accent2:#8250df; --green:#1a7f37;
+    --orange:#bc4c00; --red:#cf222e; --text:#1f2328; --muted:#656d76; --border:#d0d7de;
+    --hero-grad: linear-gradient(135deg,#f6f8fa 0%,#eaeef2 50%,#f6f8fa 100%);
+  }
+  [data-theme="light-paper"] {
+    --bg:#fffef7; --bg2:#faf9f0; --bg3:#f0eed8;
+    --accent:#2563eb; --accent2:#7c3aed; --green:#15803d;
+    --orange:#c2410c; --red:#b91c1c; --text:#292524; --muted:#78716c; --border:#e7e5e4;
+    --hero-grad: linear-gradient(135deg,#fffef7 0%,#f0eed8 50%,#fffef7 100%);
+  }
+  [data-theme="light-sepia"] {
+    --bg:#f5f0e8; --bg2:#ede8dc; --bg3:#e0d8c8;
+    --accent:#92400e; --accent2:#7c3aed; --green:#365314;
+    --orange:#92400e; --red:#7f1d1d; --text:#3c2a14; --muted:#78716c; --border:#d6cfc0;
+    --hero-grad: linear-gradient(135deg,#f5f0e8 0%,#ede8dc 50%,#f5f0e8 100%);
+  }
+  [data-theme="light-nord"] {
+    --bg:#eceff4; --bg2:#e5e9f0; --bg3:#d8dee9;
+    --accent:#5e81ac; --accent2:#b48ead; --green:#a3be8c;
+    --orange:#d08770; --red:#bf616a; --text:#2e3440; --muted:#4c566a; --border:#d8dee9;
+    --hero-grad: linear-gradient(135deg,#eceff4 0%,#e5e9f0 50%,#eceff4 100%);
+  }
+  [data-theme="light-gruvbox"] {
+    --bg:#fbf1c7; --bg2:#f2e5bc; --bg3:#ebdbb2;
+    --accent:#076678; --accent2:#8f3f71; --green:#79740e;
+    --orange:#af3a03; --red:#9d0006; --text:#3c3836; --muted:#7c6f64; --border:#d5c4a1;
+    --hero-grad: linear-gradient(135deg,#fbf1c7 0%,#f2e5bc 50%,#fbf1c7 100%);
+  }
+  [data-theme="light-rose"] {
+    --bg:#faf4ed; --bg2:#fffaf3; --bg3:#f2e9e1;
+    --accent:#d7827a; --accent2:#907aa9; --green:#56949f;
+    --orange:#ea9d34; --red:#b4637a; --text:#575279; --muted:#9893a5; --border:#dfd8d8;
+    --hero-grad: linear-gradient(135deg,#faf4ed 0%,#f2e9e1 50%,#faf4ed 100%);
+  }
+  [data-theme="light-mint"] {
+    --bg:#f0fdf4; --bg2:#dcfce7; --bg3:#bbf7d0;
+    --accent:#059669; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#14532d; --muted:#4d7c5f; --border:#bbf7d0;
+    --hero-grad: linear-gradient(135deg,#f0fdf4 0%,#dcfce7 50%,#f0fdf4 100%);
+  }
+  [data-theme="light-lavender"] {
+    --bg:#faf5ff; --bg2:#f3e8ff; --bg3:#e9d5ff;
+    --accent:#7c3aed; --accent2:#0284c7; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#3b0764; --muted:#7c3aed; --border:#e9d5ff;
+    --hero-grad: linear-gradient(135deg,#faf5ff 0%,#f3e8ff 50%,#faf5ff 100%);
+  }
+  [data-theme="light-ocean"] {
+    --bg:#f0f9ff; --bg2:#e0f2fe; --bg3:#bae6fd;
+    --accent:#0369a1; --accent2:#7c3aed; --green:#059669;
+    --orange:#d97706; --red:#dc2626; --text:#0c4a6e; --muted:#0369a1; --border:#bae6fd;
+    --hero-grad: linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 50%,#f0f9ff 100%);
+  }
+  [data-theme="light-catppuccin"] {
+    --bg:#eff1f5; --bg2:#e6e9ef; --bg3:#dce0e8;
+    --accent:#1e66f5; --accent2:#8839ef; --green:#40a02b;
+    --orange:#fe640b; --red:#d20f39; --text:#4c4f69; --muted:#7c7f93; --border:#ccd0da;
+    --hero-grad: linear-gradient(135deg,#eff1f5 0%,#e6e9ef 50%,#eff1f5 100%);
+  }
+
+  /* ============================================================
+     DYNAMIC HERO BG — apply --hero-grad to all themes
+  ============================================================ */
+  .hero { background: var(--hero-grad, linear-gradient(135deg,#0a0e1a,#0d1b3e)); }
+
+  /* Light themes — shared overrides */
+  [data-theme^="light-"] .code,
+  [data-theme="light-clean"] .code,
+  [data-theme="light-solarized"] .code,
+  [data-theme="light-github"] .code,
+  [data-theme="light-paper"] .code,
+  [data-theme="light-sepia"] .code,
+  [data-theme="light-nord"] .code,
+  [data-theme="light-gruvbox"] .code,
+  [data-theme="light-rose"] .code,
+  [data-theme="light-mint"] .code,
+  [data-theme="light-lavender"] .code,
+  [data-theme="light-ocean"] .code,
+  [data-theme="light-catppuccin"] .code {
+    background: var(--bg3);
+    border-color: var(--border);
+  }
+  [data-theme^="light-"] .code pre { color: var(--text); }
+  [data-theme^="light-"] .code .kw { color: var(--red); }
+  [data-theme^="light-"] .code .fn { color: var(--accent2); }
+  [data-theme^="light-"] .code .cm { color: var(--muted); }
+  [data-theme^="light-"] .code .st { color: var(--accent); }
+  [data-theme^="light-"] .code .nm { color: var(--accent); }
+
+  /* ============================================================
+     THEME PICKER UI
+  ============================================================ */
+  .theme-picker-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: rgba(128,128,255,0.08);
+    border: 1px solid rgba(128,128,255,0.25);
+    color: var(--accent);
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all .2s;
+    white-space: nowrap;
+    position: relative;
+  }
+  .theme-picker-btn:hover { opacity: 0.85; }
+
+  .theme-panel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 300px;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 20px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+    flex-direction: column;
+    gap: 0;
+  }
+  .theme-panel.open { display: flex; flex-direction: column; }
+  .theme-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .theme-panel-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+  .theme-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .theme-close:hover { background: var(--bg3); color: var(--text); }
+
+  .theme-section-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 16px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .theme-swatch {
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    position: relative;
+    overflow: hidden;
+  }
+  .theme-swatch:hover { transform: scale(1.03); }
+  .theme-swatch.active { border-color: var(--accent) !important; }
+  .theme-swatch .swatch-name {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .theme-swatch .swatch-dots {
+    display: flex;
+    gap: 4px;
+  }
+  .theme-swatch .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Backdrop */
+  .theme-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 999;
+  }
+  .theme-backdrop.open { display: block; }
+
+</style>
+
+
+<script>
+(function() {
+  
+  const THEMES = [
+    // Dark
+    { id:'midnight',        name:'Midnight',      bg:'#0a0e1a', bg2:'#111827', accent:'#00d4ff', accent2:'#7c3aed', text:'#e2e8f0', dark:true },
+    { id:'matrix',          name:'Matrix',        bg:'#000d00', bg2:'#001a00', accent:'#00ff41', accent2:'#00cc33', text:'#b3ffb3', dark:true },
+    { id:'dracula',         name:'Dracula',       bg:'#282a36', bg2:'#21222c', accent:'#bd93f9', accent2:'#ff79c6', text:'#f8f8f2', dark:true },
+    { id:'monokai',         name:'Monokai',       bg:'#272822', bg2:'#1e1f1c', accent:'#a6e22e', accent2:'#66d9e8', text:'#f8f8f2', dark:true },
+    { id:'nord',            name:'Nord',          bg:'#2e3440', bg2:'#3b4252', accent:'#88c0d0', accent2:'#b48ead', text:'#eceff4', dark:true },
+    { id:'gruvbox',         name:'Gruvbox',       bg:'#282828', bg2:'#32302f', accent:'#fabd2f', accent2:'#fe8019', text:'#ebdbb2', dark:true },
+    { id:'tokyo',           name:'Tokyo Night',   bg:'#1a1b2e', bg2:'#16213e', accent:'#7aa2f7', accent2:'#bb9af7', text:'#c0caf5', dark:true },
+    { id:'synthwave',       name:'Synthwave',     bg:'#0d0221', bg2:'#140330', accent:'#f72585', accent2:'#7209b7', text:'#e0aaff', dark:true },
+    { id:'onedark',         name:'One Dark',      bg:'#282c34', bg2:'#21252b', accent:'#61afef', accent2:'#c678dd', text:'#abb2bf', dark:true },
+    { id:'solarized-dark',  name:'Solarized',     bg:'#002b36', bg2:'#073642', accent:'#2aa198', accent2:'#6c71c4', text:'#839496', dark:true },
+    { id:'catppuccin',      name:'Catppuccin',    bg:'#1e1e2e', bg2:'#181825', accent:'#cba6f7', accent2:'#f38ba8', text:'#cdd6f4', dark:true },
+    { id:'cobalt',          name:'Cobalt',        bg:'#0a1628', bg2:'#122140', accent:'#ffd700', accent2:'#ff8c00', text:'#d6e4f0', dark:true },
+    // Light
+    { id:'light-clean',     name:'Clean',         bg:'#f8fafc', bg2:'#ffffff', accent:'#0284c7', accent2:'#7c3aed', text:'#1e293b', dark:false },
+    { id:'light-github',    name:'GitHub',        bg:'#ffffff', bg2:'#f6f8fa', accent:'#0969da', accent2:'#8250df', text:'#1f2328', dark:false },
+    { id:'light-solarized', name:'Solarized',     bg:'#fdf6e3', bg2:'#eee8d5', accent:'#268bd2', accent2:'#6c71c4', text:'#657b83', dark:false },
+    { id:'light-paper',     name:'Paper',         bg:'#fffef7', bg2:'#faf9f0', accent:'#2563eb', accent2:'#7c3aed', text:'#292524', dark:false },
+    { id:'light-sepia',     name:'Sepia',         bg:'#f5f0e8', bg2:'#ede8dc', accent:'#92400e', accent2:'#7c3aed', text:'#3c2a14', dark:false },
+    { id:'light-nord',      name:'Nord Light',    bg:'#eceff4', bg2:'#e5e9f0', accent:'#5e81ac', accent2:'#b48ead', text:'#2e3440', dark:false },
+    { id:'light-gruvbox',   name:'Gruvbox',       bg:'#fbf1c7', bg2:'#f2e5bc', accent:'#076678', accent2:'#8f3f71', text:'#3c3836', dark:false },
+    { id:'light-rose',      name:'Rosé Pine',     bg:'#faf4ed', bg2:'#fffaf3', accent:'#d7827a', accent2:'#907aa9', text:'#575279', dark:false },
+    { id:'light-mint',      name:'Mint',          bg:'#f0fdf4', bg2:'#dcfce7', accent:'#059669', accent2:'#7c3aed', text:'#14532d', dark:false },
+    { id:'light-lavender',  name:'Lavender',      bg:'#faf5ff', bg2:'#f3e8ff', accent:'#7c3aed', accent2:'#0284c7', text:'#3b0764', dark:false },
+    { id:'light-ocean',     name:'Ocean',         bg:'#f0f9ff', bg2:'#e0f2fe', accent:'#0369a1', accent2:'#7c3aed', text:'#0c4a6e', dark:false },
+    { id:'light-catppuccin',name:'Catppuccin',    bg:'#eff1f5', bg2:'#e6e9ef', accent:'#1e66f5', accent2:'#8839ef', text:'#4c4f69', dark:false },
+  ];
+
+  var saved = localStorage.getItem('pmpp-theme') || 'midnight';
+  document.documentElement.setAttribute('data-theme', saved);
+
+  function applyTheme(id) {
+    document.documentElement.setAttribute('data-theme', id);
+    localStorage.setItem('pmpp-theme', id);
+    // Update active swatch
+    document.querySelectorAll('.theme-swatch').forEach(function(s) {
+      s.classList.toggle('active', s.dataset.theme === id);
+    });
+    // Update button
+    var t = THEMES.find(function(x){ return x.id===id; });
+    var btn = document.getElementById('themePickerBtn');
+    if (btn && t) btn.querySelector('.btn-label').textContent = t.name;
+  }
+
+  function buildPanel() {
+    var panel = document.getElementById('themePanel');
+    if (!panel) return;
+    var dark = THEMES.filter(function(t){ return t.dark; });
+    var light = THEMES.filter(function(t){ return !t.dark; });
+    var current = document.documentElement.getAttribute('data-theme');
+
+    function makeGrid(list) {
+      var g = document.createElement('div');
+      g.className = 'theme-grid';
+      list.forEach(function(t) {
+        var s = document.createElement('div');
+        s.className = 'theme-swatch' + (t.id === current ? ' active' : '');
+        s.dataset.theme = t.id;
+        s.style.background = t.bg2;
+        s.style.borderColor = t.id === current ? t.accent : 'transparent';
+        s.innerHTML =
+          '<div class="swatch-name" style="color:'+t.text+'">'+t.name+'</div>' +
+          '<div class="swatch-dots">' +
+            '<div class="dot" style="background:'+t.accent+'"></div>' +
+            '<div class="dot" style="background:'+t.accent2+'"></div>' +
+            '<div class="dot" style="background:'+t.text+'"></div>' +
+          '</div>';
+        s.addEventListener('click', function() { applyTheme(t.id); });
+        g.appendChild(s);
+      });
+      return g;
+    }
+
+    var dLabel = document.createElement('div');
+    dLabel.className = 'theme-section-label';
+    dLabel.textContent = '🌙 Thèmes Sombres';
+    panel.appendChild(dLabel);
+    panel.appendChild(makeGrid(dark));
+
+    var lLabel = document.createElement('div');
+    lLabel.className = 'theme-section-label';
+    lLabel.textContent = '☀️ Thèmes Clairs';
+    panel.appendChild(lLabel);
+    panel.appendChild(makeGrid(light));
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('themePickerBtn');
+    var panel = document.getElementById('themePanel');
+    var backdrop = document.getElementById('themeBackdrop');
+
+    buildPanel();
+
+    // Set button label
+    var t = THEMES.find(function(x){ return x.id === (localStorage.getItem('pmpp-theme')||'midnight'); });
+    if (btn && t) btn.querySelector('.btn-label').textContent = t.name;
+
+    function openPanel() {
+      panel.classList.add('open');
+      backdrop.classList.add('open');
+    }
+    function closePanel() {
+      panel.classList.remove('open');
+      backdrop.classList.remove('open');
+    }
+
+    if (btn) btn.addEventListener('click', function(e){ e.stopPropagation(); openPanel(); });
+    if (backdrop) backdrop.addEventListener('click', closePanel);
+    var closeBtn = document.getElementById('themeCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  });
+})();
+</script>
+
+</head>
+<body>
+<nav>
+  <a href="index.html" class="home">🏠 PMPP</a>
+  <a href="ch01.html">Ch.1</a><a href="ch02.html">Ch.2</a><a href="ch03.html">Ch.3</a><a href="ch04.html">Ch.4</a><a href="ch05.html">Ch.5</a><a href="ch06.html">Ch.6</a><a href="ch07.html">Ch.7</a><a href="ch08.html">Ch.8</a><a href="ch09.html">Ch.9</a><a href="ch10.html">Ch.10</a><a href="ch11.html">Ch.11</a><a href="ch12.html"class=active>Ch.12</a><a href="ch13.html">Ch.13</a><a href="ch14.html">Ch.14</a><a href="ch15.html">Ch.15</a><a href="ch16.html">Ch.16</a><a href="ch17.html">Ch.17</a><a href="ch18.html">Ch.18</a><a href="ch19.html">Ch.19</a><a href="ch20.html">Ch.20</a><a href="ch21.html">Ch.21</a><a href="ch22.html">Ch.22</a><a href="ch23.html">Ch.23</a>
+<button class="theme-picker-btn" id="themePickerBtn">🎨 <span class="btn-label">Midnight</span></button>
+</nav>
+<div class="hero">
+  <div class="part-badge">Partie II — Patterns Parallèles</div>
+  <h1>Ch.12 — Merge</h1>
+  <div class="pager"><a href="ch11.html">← Ch.11</a><a href="ch13.html">Ch.13 →</a></div>
+</div>
+<div class="container">
+
+<h2>12.1 Le Problème du Merge Parallèle</h2>
+<p>Fusionner deux tableaux triés A et B en un tableau trié C. La difficulté : comment diviser le travail entre threads de manière équilibrée quand les entrées sont de tailles variables ?</p>
+
+<h2>12.2 La Fonction Co-rank</h2>
+<p>La <strong>co-rank function</strong> est la clé du merge parallèle. Pour une position k dans la sortie, elle trouve les indices (i, j) tels que les i premiers éléments de A et les j premiers de B fusionnent pour former les k premiers éléments de C.</p>
+
+<div class="formula">co_rank(k) → (i, j) où i + j = k et A[i-1] ≤ B[j] et B[j-1] &lt; A[i]</div>
+
+<div class="code"><pre><span class="cm">// Co-rank function — recherche binaire O(log N)</span>
+<span class="kw">__device__</span> <span class="kw">int</span> <span class="fn">co_rank</span>(<span class="kw">int</span> k, <span class="kw">int</span>* A, <span class="kw">int</span> m, <span class="kw">int</span>* B, <span class="kw">int</span> n) {
+    <span class="kw">int</span> i = min(k, m);  <span class="cm">// départ : prendre au max k éléments de A</span>
+    <span class="kw">int</span> i_low = max(<span class="nm">0</span>, k-n);
+    <span class="kw">while</span> (<span class="nm">true</span>) {
+        <span class="kw">int</span> j = k - i;
+        <span class="kw">if</span> (i &gt; <span class="nm">0</span> &amp;&amp; j &lt; n &amp;&amp; A[i-<span class="nm">1</span>] &gt; B[j])
+            i -= (i - i_low + <span class="nm">1</span>) / <span class="nm">2</span>;  <span class="cm">// trop d'éléments de A</span>
+        <span class="kw">else if</span> (j &gt; <span class="nm">0</span> &amp;&amp; i &lt; m &amp;&amp; B[j-<span class="nm">1</span>] &gt;= A[i])
+            i += (i - i_low + <span class="nm">1</span>) / <span class="nm">2</span>;  <span class="cm">// pas assez d'éléments de A</span>
+        <span class="kw">else</span> <span class="kw">return</span> i;
+    }
+}
+
+<span class="cm">// Kernel de merge — chaque thread gère une portion de la sortie</span>
+<span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">mergeKernel</span>(<span class="kw">int</span>* A, <span class="kw">int</span> m, <span class="kw">int</span>* B, <span class="kw">int</span> n, <span class="kw">int</span>* C) {
+    <span class="kw">int</span> tid = <span class="nm">blockIdx</span>.x * <span class="nm">blockDim</span>.x + <span class="nm">threadIdx</span>.x;
+    <span class="kw">int</span> k_curr = tid * ((m+n) / (gridDim.x*<span class="nm">blockDim</span>.x));
+    <span class="kw">int</span> k_next = k_curr + (m+n) / (gridDim.x*<span class="nm">blockDim</span>.x);
+    <span class="kw">int</span> i_curr = <span class="fn">co_rank</span>(k_curr, A, m, B, n);
+    <span class="kw">int</span> i_next = <span class="fn">co_rank</span>(k_next, A, m, B, n);
+    <span class="kw">int</span> j_curr = k_curr - i_curr;
+    <span class="cm">// merge séquentiel A[i_curr..i_next] et B[j_curr..j_next] → C[k_curr..k_next]</span>
+    <span class="fn">merge_sequential</span>(A+i_curr, i_next-i_curr, B+j_curr, j_next-j_curr, C+k_curr);
+}</pre></div>
+
+<div class="concept">
+<h4>Optimisations du Merge Tuilé</h4>
+<ul>
+<li><strong>Tiled merge :</strong> charger des sous-sections de A et B en shared memory pour améliorer le coalescing et réduire la latence</li>
+<li><strong>Circular buffer :</strong> réutiliser la shared memory de manière circulaire quand une tuile est épuisée → moins de rechargements</li>
+<li><strong>Thread coarsening :</strong> chaque thread fusionne plusieurs éléments consécutifs → meilleure arithmetic intensity</li>
+</ul>
+</div>
+
+<div class="itw">
+<div class="itw-title">🎯 Questions d'entretien</div>
+<ul>
+<li>« Pourquoi la co-rank function est-elle nécessaire pour le merge parallèle ? » → Permet de diviser le travail de manière équitable sans coordination globale</li>
+<li>« Complexité de la co-rank function ? » → O(log(min(m,n))) par binary search</li>
+<li>« Applications du merge parallèle ? » → Merge sort, algorithmes de base de données, stream joins</li>
+</ul>
+</div>
+
+</div>
+<footer>Programming Massively Parallel Processors, 4th Ed. — Guide ITW Nvidia/AMD/Intel</footer>
+
+<div class="theme-backdrop" id="themeBackdrop"></div>
+<div class="theme-panel" id="themePanel">
+  <div class="theme-panel-header">
+    <h3>🎨 Choisir un thème</h3>
+    <button class="theme-close" id="themeCloseBtn">✕</button>
+  </div>
+</div>
+
+</body>
+</html>
