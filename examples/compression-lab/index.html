@@ -111,6 +111,7 @@
     .slabel {
       font-size:10px; font-weight:700; letter-spacing:1.2px;
       text-transform:uppercase; margin-bottom:7px;
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
     }
     .slabel.pos    { color:#60a5fa; }
     .slabel.color  { color:var(--purple); }
@@ -120,6 +121,34 @@
     .slabel.view   { color:var(--muted); }
     .slabel.mem    { color:var(--cyan); }
     .slabel.metric { color:var(--muted); }
+    .gain-badge {
+      font-family:'SF Mono',monospace;
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:0;
+      text-transform:none;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      color:var(--muted);
+      background:var(--bg3);
+      white-space:nowrap;
+    }
+    .gain-badge.good {
+      color:var(--green);
+      border-color:rgba(16,185,129,.55);
+      background:rgba(16,185,129,.12);
+    }
+    .gain-badge.warn {
+      color:var(--warn);
+      border-color:rgba(245,158,11,.55);
+      background:rgba(245,158,11,.12);
+    }
+    .gain-badge.bad {
+      color:var(--red);
+      border-color:rgba(248,113,113,.55);
+      background:rgba(248,113,113,.12);
+    }
 
     select {
       width:100%; background:var(--bg3); border:1px solid var(--border);
@@ -295,7 +324,7 @@
 
   <!-- Position compression -->
   <div class="psec">
-    <div class="slabel pos">Position compression</div>
+    <div class="slabel pos"><span>Position compression</span><span class="gain-badge" id="gain-pos">0.0 %</span></div>
     <div class="btn-group" id="pos-btns">
       <button class="btn active-pos" data-size="0">Off</button>
       <button class="btn" data-size="32">32</button>
@@ -307,7 +336,7 @@
 
   <!-- Scale compression -->
   <div class="psec">
-    <div class="slabel scale">Scale compression</div>
+    <div class="slabel scale"><span>Scale compression</span><span class="gain-badge" id="gain-scale">0.0 %</span></div>
     <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
     <div class="btn-group" id="scale-btns">
       <button class="btn active-scale" data-size="0">Off</button>
@@ -332,10 +361,15 @@
 
   <!-- Rotation compression -->
   <div class="psec">
-    <div class="slabel rot">Rotation compression</div>
+    <div class="slabel rot"><span>Rotation compression</span><span class="gain-badge" id="gain-rot">0.0 %</span></div>
+    <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Model</div>
+    <div class="btn-group" id="rotmode-btns">
+      <button class="btn active-rot" data-mode="off">Off</button>
+      <button class="btn" data-mode="cluster">Cluster range</button>
+      <button class="btn" data-mode="palette">Scene palette</button>
+    </div>
     <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
     <div class="btn-group" id="rot-btns">
-      <button class="btn active-rot" data-size="0">Off</button>
       <button class="btn" data-size="4">4</button>
       <button class="btn" data-size="8">8</button>
       <button class="btn" data-size="16">16</button>
@@ -343,6 +377,17 @@
       <button class="btn" data-size="64">64</button>
       <button class="btn" data-size="128">128</button>
       <button class="btn" data-size="256">256</button>
+    </div>
+    <div class="subsec-title" style="margin-bottom:4px;">Palette entries</div>
+    <div class="btn-group" id="rotpalette-btns">
+      <button class="btn" data-palette="1024">1K</button>
+      <button class="btn" data-palette="2048">2K</button>
+      <button class="btn active-rot" data-palette="4096">4K</button>
+      <button class="btn" data-palette="8192">8K</button>
+      <button class="btn" data-palette="16384">16K</button>
+      <button class="btn" data-palette="32768">32K</button>
+      <button class="btn" data-palette="65536">64K</button>
+      <button class="btn" data-palette="131072">128K</button>
     </div>
     <div class="subsec-title" style="margin-bottom:4px;">Bits / component</div>
     <div class="btn-group" id="rotbits-btns">
@@ -357,7 +402,7 @@
 
   <!-- Color compression -->
   <div class="psec">
-    <div class="slabel color">#6 Color compression</div>
+    <div class="slabel color"><span>#6 Color compression</span><span class="gain-badge" id="gain-color">0.0 %</span></div>
     <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Model</div>
     <div class="btn-group" id="colormode-btns">
       <button class="btn active-color" data-mode="pca">PCA ramp</button>
@@ -390,7 +435,7 @@
 
   <!-- Alpha compression -->
   <div class="psec">
-    <div class="slabel alpha">#8 Alpha compression</div>
+    <div class="slabel alpha"><span>#8 Alpha compression</span><span class="gain-badge" id="gain-alpha">0.0 %</span></div>
     <div class="subsec-title" style="margin-top:0;margin-bottom:4px;">Cluster size</div>
     <div class="btn-group" id="alpha-btns">
       <button class="btn active-alpha" data-size="0">Off</button>
@@ -622,8 +667,10 @@ let rampColors  = 4;     // number of colors in the PCA ramp
 let rampFmt     = "888"; // "888" = RGB8 (3B/color) | "565" = RGB565 (2B/color)
 let scaleSize   = 0;     // 0 = off
 let scaleBits   = 4;     // bits per scale component
-let rotSize     = 0;     // 0 = off
+let rotMode     = "off"; // "off" | "cluster" | "palette"
+let rotSize     = 128;   // cluster size for cluster rotation mode
 let rotBits     = 4;     // bits per rotation component
+let rotPaletteSize = 4096;
 let alphaSize   = 0;     // 0 = off
 let alphaBits   = 4;     // bits per alpha value
 let metaFmt     = "f32"; // "f32" | "f16"
@@ -963,14 +1010,53 @@ function nearestPaletteColor(palette, color) {
 }
 
 // ── Main compression pipeline ──────────────────────────
-async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, rotC, rBits, alphaC, aBits) {
+function unpackRotKey(src, i) {
+  const w2 = src[i * 4 + 2], w3 = src[i * 4 + 3];
+  return {
+    qx: (w2 >>> 16) & 0xff,
+    qy: (w2 >>> 24) & 0xff,
+    qz: (w3 >>> 24) & 0xff,
+  };
+}
+
+function writeRotKey(dst, i, qx, qy, qz) {
+  dst[i * 4 + 2] = (dst[i * 4 + 2] & 0x0000ffff) | (qx << 16) | (qy << 24);
+  dst[i * 4 + 3] = (dst[i * 4 + 3] & 0x00ffffff) | (qz << 24);
+}
+
+function snappedRotKey(qx, qy, qz, snapBits = 5) {
+  const max = (1 << snapBits) - 1;
+  const sx = Math.min(max, Math.max(0, Math.round(qx / 255 * max)));
+  const sy = Math.min(max, Math.max(0, Math.round(qy / 255 * max)));
+  const sz = Math.min(max, Math.max(0, Math.round(qz / 255 * max)));
+  return sx | (sy << snapBits) | (sz << (snapBits * 2));
+}
+
+function unsnapRotKey(key, snapBits = 5) {
+  const max = (1 << snapBits) - 1;
+  const mask = max;
+  const sx = key & mask;
+  const sy = (key >>> snapBits) & mask;
+  const sz = (key >>> (snapBits * 2)) & mask;
+  return [
+    Math.round(sx / max * 255),
+    Math.round(sy / max * 255),
+    Math.round(sz / max * 255),
+  ];
+}
+
+function snapBitsForRotPalette(size) {
+  return size > 32768 ? 6 : 5;
+}
+
+async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, rotMode_, rotC, rBits, rotPaletteSize_, alphaC, aBits) {
   const n   = packed.numSplats;
   const src = packed.packedArray;
   const enc = packed.splatEncoding;
 
   const anyPos   = posC   > 0;
   const anyScale = scaleC > 0;
-  const anyRot   = rotC   > 0;
+  const anyRot   = rotMode_ !== "off";
   const anyColor = colorC > 0;
   const anyAlpha = alphaC > 0;
 
@@ -1148,6 +1234,48 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
 
   // ── Step 3c: Rotation quantization ────────────────
   if (anyRot) {
+    if (rotMode_ === "palette") {
+      setStatus("loading", `Rotation palette (${rotPaletteSize_.toLocaleString()} entries)…`);
+      const snapBits = snapBitsForRotPalette(rotPaletteSize_);
+      const snapped = snapBits > 5 ? new Uint32Array(n) : new Uint16Array(n);
+      const counts = new Map();
+      for (let i = 0; i < n; i++) {
+        const { qx, qy, qz } = unpackRotKey(src, i);
+        const key = snappedRotKey(qx, qy, qz, snapBits);
+        snapped[i] = key;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+        if (i % 100000 === 0) { setProgress(0.75 + (i/n)*0.025); await tick(); }
+      }
+
+      const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+      const paletteKeys = entries.slice(0, Math.min(rotPaletteSize_, entries.length)).map(([key]) => key);
+      const palette = paletteKeys.map(key => unsnapRotKey(key, snapBits));
+      const exact = new Map(paletteKeys.map((key, i) => [key, i]));
+      const nearestCache = new Map();
+      const nearestPaletteIndex = key => {
+        const exactIndex = exact.get(key);
+        if (exactIndex !== undefined) return exactIndex;
+        const cached = nearestCache.get(key);
+        if (cached !== undefined) return cached;
+        const [qx, qy, qz] = unsnapRotKey(key, snapBits);
+        let best = 0, bestD = Infinity;
+        for (let i = 0; i < palette.length; i++) {
+          const p = palette[i];
+          const d = (p[0]-qx)**2 + (p[1]-qy)**2 + (p[2]-qz)**2;
+          if (d < bestD) { bestD = d; best = i; }
+        }
+        nearestCache.set(key, best);
+        return best;
+      };
+
+      for (let i = 0; i < n; i++) {
+        const { qx, qy, qz } = unpackRotKey(src, i);
+        const [rqx, rqy, rqz] = palette[nearestPaletteIndex(snapped[i])];
+        rotErrors[i] = Math.sqrt((rqx-qx)**2 + (rqy-qy)**2 + (rqz-qz)**2);
+        writeRotKey(reconArray, i, rqx, rqy, rqz);
+        if (i % 100000 === 0) { setProgress(0.775 + (i/n)*0.075); await tick(); }
+      }
+    } else {
     setStatus("loading", `Rotation quant (c=${rotC}, ${rBits} bits/comp)…`);
     const levels = (1 << rBits) - 1;
     const numC = Math.ceil(n / rotC);
@@ -1187,6 +1315,7 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
         reconArray[oi * 4 + 3] = (reconArray[oi * 4 + 3] & 0x00ffffff) | (rqz << 24);
       }
       if (ci % 200 === 0) { setProgress(0.75 + (ci/numC)*0.1); await tick(); }
+    }
     }
   }
 
@@ -1291,7 +1420,7 @@ async function runCompression(packed, posC, colorC, nRamp, fmt, scaleC, sBits, r
 
   setProgress(1);
   return { reconArray, n, posStats, relStats, scaleStats, rotStats, colStats, alphaStats, psnr,
-           anyPos, anyScale, anyRot, anyColor, anyAlpha, nRamp, fmt, sBits, scaleC, rotC, rBits, alphaC, aBits };
+           anyPos, anyScale, anyRot, anyColor, anyAlpha, nRamp, fmt, sBits, scaleC, rotMode: rotMode_, rotC, rBits, rotPaletteSize: rotPaletteSize_, alphaC, aBits };
 }
 
 // ── Format helpers ─────────────────────────────────────
@@ -1305,14 +1434,23 @@ const f4 = v => Number.isFinite(v) ? v.toFixed(4) : "—";
 const f2 = v => Number.isFinite(v) ? v.toFixed(2) : "—";
 const fPct = v => (v*100).toFixed(1)+" %";
 
+function updateGainBadge(id, gain) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = fPct(gain);
+  el.className = "gain-badge " + (gain >= 0.05 ? "good" : gain >= 0 ? "warn" : "bad");
+}
+
 function estimateMemory({
   n,
   posC = posSize,
   pMode = posMode,
   scaleC = scaleSize,
   sBits = scaleBits,
+  rMode = rotMode,
   rotC = rotSize,
   rBits = rotBits,
+  rPalette = rotPaletteSize,
   colorC = colorSize,
   cMode = colorMode,
   nRamp = rampColors,
@@ -1326,7 +1464,11 @@ function estimateMemory({
   const posMetaComponents = pMode === "pca" ? 15 : 6;
   const posBytes = posC > 0 ? 3 + (posMetaComponents * metaBytes) / posC : 6;
   const scaleBytes = scaleC > 0 ? (sBits * 3 / 8) + (6 * metaBytes) / scaleC : 3;
-  const rotBytes = rotC > 0 ? (rBits * 3 / 8) + (6 * metaBytes) / rotC : 3;
+  const rotBytes = rMode === "palette"
+    ? Math.ceil(Math.log2(Math.max(2, rPalette))) / 8 + (rPalette * 3) / (n || 500000)
+    : rMode === "cluster" && rotC > 0
+      ? (rBits * 3 / 8) + (6 * metaBytes) / rotC
+      : 3;
   const colorIndexBytes = cMode === "kmeans"
     ? Math.ceil(Math.log2(Math.max(2, nRamp))) / 8
     : 1;
@@ -1362,8 +1504,10 @@ function updateMemory(n, overrideRamp, overrideFmt, overrideScaleC, overrideSBit
     n,
     scaleC: scaleSize_,
     sBits: scaleBits_,
+    rMode: rotMode,
     rotC: rotSize_,
     rBits: rotBits_,
+    rPalette: rotPaletteSize,
   });
   const pills = document.getElementById("mode-pills");
   pills.innerHTML = "";
@@ -1373,14 +1517,19 @@ function updateMemory(n, overrideRamp, overrideFmt, overrideScaleC, overrideSBit
   };
   mkPill(posSize    > 0 ? `Pos c=${posSize} ${posMode}`                  : "Pos off", posSize    > 0 ? "pos"   : "off");
   mkPill(scaleSize_ > 0 ? `Sc c=${scaleSize_} ${scaleBits_}b`  : "Sc off",  scaleSize_ > 0 ? "scale" : "off");
-  mkPill(rotSize_   > 0 ? `Rot c=${rotSize_} ${rotBits_}b`    : "Rot off", rotSize_   > 0 ? "rot"   : "off");
+  mkPill(
+    rotMode === "palette" ? `Rot palette ${rotPaletteSize.toLocaleString()}`
+      : rotMode === "cluster" ? `Rot c=${rotSize_} ${rotBits_}b`
+      : "Rot off",
+    rotMode !== "off" ? "rot" : "off"
+  );
   mkPill(colorSize  > 0 ? `Col c=${colorSize} ${colorMode} r=${rampColors_} ${rampFmt_}` : "Col off", colorSize > 0 ? "color" : "off");
   mkPill(alphaSize  > 0 ? `A c=${alphaSize} ${alphaBits}b`              : "A off", alphaSize > 0 ? "alpha" : "off");
 
   document.getElementById("m-n").textContent            = n ? n.toLocaleString() : "—";
   document.getElementById("m-pos-bytes").textContent   = posSize    > 0 ? est.posBytes.toFixed(4)+" B"   : "—";
   document.getElementById("m-scale-bytes").textContent = scaleSize_ > 0 ? est.scaleBytes.toFixed(4)+" B" : "—";
-  document.getElementById("m-rot-bytes").textContent   = rotSize_   > 0 ? est.rotBytes.toFixed(4)+" B"   : "—";
+  document.getElementById("m-rot-bytes").textContent   = rotMode !== "off" ? est.rotBytes.toFixed(4)+" B" : "—";
   document.getElementById("m-col-bytes").textContent   = colorSize  > 0 ? est.colorBytes.toFixed(4)+" B" : "—";
   document.getElementById("m-alpha-bytes").textContent = alphaSize  > 0 ? est.alphaBytes.toFixed(4)+" B" : "—";
   document.getElementById("m-cur").textContent  = n ? fmtB(n * PACKED_BYTES) : "—";
@@ -1390,6 +1539,12 @@ function updateMemory(n, overrideRamp, overrideFmt, overrideScaleC, overrideSBit
     : fPct(est.gain);
   document.getElementById("top-splat-bytes").textContent = est.cmpTotal.toFixed(2) + " B";
   document.getElementById("top-gain").textContent = fPct(est.gain);
+
+  updateGainBadge("gain-pos",   (6 - est.posBytes) / PACKED_BYTES);
+  updateGainBadge("gain-scale", (3 - est.scaleBytes) / PACKED_BYTES);
+  updateGainBadge("gain-rot",   (3 - est.rotBytes) / PACKED_BYTES);
+  updateGainBadge("gain-color", (3 - est.colorBytes) / PACKED_BYTES);
+  updateGainBadge("gain-alpha", (1 - est.alphaBytes) / PACKED_BYTES);
 }
 
 // ── Update error panels ────────────────────────────────
@@ -1485,7 +1640,7 @@ async function loadAndCompress() {
     await originalPacked.initialized;
     meshA.packedSplats = originalPacked;
 
-    const doAnything = posSize > 0 || colorSize > 0 || scaleSize > 0 || rotSize > 0 || alphaSize > 0;
+    const doAnything = posSize > 0 || colorSize > 0 || scaleSize > 0 || rotMode !== "off" || alphaSize > 0;
     if (!doAnything) {
       // Both off — just show original in both
       meshB.packedSplats = originalPacked;
@@ -1493,7 +1648,7 @@ async function loadAndCompress() {
       setStatus("ready", "No compression active — both views show original");
       setProgress(0);
     } else {
-      const results = await runCompression(originalPacked, posSize, colorSize, rampColors, rampFmt, scaleSize, scaleBits, rotSize, rotBits, alphaSize, alphaBits);
+      const results = await runCompression(originalPacked, posSize, colorSize, rampColors, rampFmt, scaleSize, scaleBits, rotMode, rotSize, rotBits, rotPaletteSize, alphaSize, alphaBits);
       reconPacked = new PackedSplats({ packedArray: results.reconArray });
       await reconPacked.initialized;
       meshB.packedSplats = reconPacked;
@@ -1505,7 +1660,9 @@ async function loadAndCompress() {
       const bits = [];
       if (posSize > 0)   bits.push(`pos c=${posSize} p99rel=${f4(results.relStats?.p99)}`);
       if (scaleSize > 0) bits.push(`scale c=${scaleSize} p90=${f4(results.scaleStats?.p90)}`);
-      if (rotSize > 0)   bits.push(`rot c=${rotSize} p90=${f4(results.rotStats?.p90)}`);
+      if (rotMode !== "off") bits.push(rotMode === "palette"
+        ? `rot palette=${rotPaletteSize} p90=${f4(results.rotStats?.p90)}`
+        : `rot c=${rotSize} p90=${f4(results.rotStats?.p90)}`);
       if (colorSize > 0) bits.push(`col c=${colorSize} PSNR=${f2(results.psnr)} dB`);
       if (alphaSize > 0) bits.push(`alpha c=${alphaSize} p90=${f4(results.alphaStats?.p90)}`);
       setStatus("ready", bits.join(" · "));
@@ -1543,8 +1700,10 @@ function applyConfig(cfg) {
   if ("posMode" in cfg) posMode = cfg.posMode;
   if ("scaleSize" in cfg) scaleSize = cfg.scaleSize;
   if ("scaleBits" in cfg) scaleBits = cfg.scaleBits;
+  if ("rotMode" in cfg) rotMode = cfg.rotMode;
   if ("rotSize" in cfg) rotSize = cfg.rotSize;
   if ("rotBits" in cfg) rotBits = cfg.rotBits;
+  if ("rotPaletteSize" in cfg) rotPaletteSize = cfg.rotPaletteSize;
   if ("colorSize" in cfg) colorSize = cfg.colorSize;
   if ("colorMode" in cfg) colorMode = cfg.colorMode;
   if ("rampColors" in cfg) rampColors = cfg.rampColors;
@@ -1557,8 +1716,10 @@ function applyConfig(cfg) {
   activateGroup("#posmode-btns", "mode", posMode, "active-pos");
   activateGroup("#scale-btns", "size", scaleSize, "active-scale");
   activateGroup("#scalebits-btns", "bits", scaleBits, "active-scale");
+  activateGroup("#rotmode-btns", "mode", rotMode, "active-rot");
   activateGroup("#rot-btns", "size", rotSize, "active-rot");
   activateGroup("#rotbits-btns", "bits", rotBits, "active-rot");
+  activateGroup("#rotpalette-btns", "palette", rotPaletteSize, "active-rot");
   activateGroup("#color-btns", "size", colorSize, "active-color");
   activateGroup("#colormode-btns", "mode", colorMode, "active-color");
   activateGroup("#ramp-btns", "ramp", rampColors, "active-color");
@@ -1600,8 +1761,10 @@ function runTheoreticalSweep() {
                         fmt: "565",
                         alphaC,
                         aBits,
+                        rMode: rotMode,
                         rotC: rotSize,
                         rBits: rotBits,
+                        rPalette: rotPaletteSize,
                       });
                     }
                   }
@@ -1688,15 +1851,27 @@ document.querySelectorAll("#scalebits-btns .btn").forEach(btn => {
   });
 });
 
+document.querySelectorAll("#rotmode-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyConfig({ rotMode: btn.dataset.mode });
+  });
+});
+
 document.querySelectorAll("#rot-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    applyConfig({ rotSize: Number(btn.dataset.size) });
+    applyConfig({ rotMode: "cluster", rotSize: Number(btn.dataset.size) });
   });
 });
 
 document.querySelectorAll("#rotbits-btns .btn").forEach(btn => {
   btn.addEventListener("click", () => {
     applyConfig({ rotBits: Number(btn.dataset.bits) });
+  });
+});
+
+document.querySelectorAll("#rotpalette-btns .btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyConfig({ rotMode: "palette", rotPaletteSize: Number(btn.dataset.palette) });
   });
 });
 
@@ -1736,7 +1911,7 @@ window.addEventListener("keydown", e => {
 });
 
 applyViewMode("ab");
-updateMemory(null);
+applyConfig({});
 </script>
 </body>
 </html>
